@@ -9,6 +9,7 @@
   WalletCards,
 } from "lucide-react";
 import DashboardLayout from "../components/Sidebar";
+import { getSessionCookie } from "../services/auth";
 
 const feed = [
   ["BUY", "MeroShare Â· CHDC", "Rs. 1,000", "10", "blue", "Transferred"],
@@ -219,7 +220,16 @@ function ManagerPanel({ stock = false }: { stock?: boolean }) {
   );
 }
 
-function Home() {
+function Dashboard() {
+  const session = getSessionCookie();
+  const firstName = session?.user.name.trim().split(/\s+/)[0] || "there";
+  const today = new Intl.DateTimeFormat("en-US", {
+    weekday: "long",
+    month: "long",
+    day: "numeric",
+    year: "numeric",
+  }).format(new Date());
+
   return (
     <DashboardLayout activePage="dashboard">
       <div
@@ -229,10 +239,10 @@ function Home() {
         <div className="mb-8 flex items-end justify-between max-[680px]:flex-col max-[680px]:items-start max-[680px]:gap-4.5">
           <div>
             <p className="mb-2.25 text-[9px] font-bold uppercase tracking-[1.3px] text-[#5d6b6d]">
-              Wednesday, September 30, 2026
+              {today}
             </p>
             <h1 className="mb-1.75 text-[29px] font-bold tracking-[-1px] text-[#f1f4f3] max-[680px]:text-[25px]">
-              Good morning, Alex
+              Good morning, {firstName}
             </h1>
             <p className="text-[12px] text-[#758183]">
               Here is what is happening with your money today.
@@ -330,10 +340,10 @@ function Home() {
             </div>
             {feed.map(([type, note, amount, quantity, tone, status]) => (
               <div
-                className="grid grid-cols-[2fr_.7fr_1fr_1fr] items-center gap-3 border-t border-[#171d1d] px-3.75 py-3 text-[11px] text-[#d6dfdd] hover:bg-[#0b1010] max-[680px]:grid-cols-[1.6fr_.6fr_1fr] max-[680px]:gap-1.25 max-[680px]:px-1"
+                className="grid grid-cols-[2fr_.7fr_1fr_1fr] items-center gap-3 border-t border-[#171d1d] px-3.75 py-3 text-[11px] text-[#d6dfdd] hover:bg-[#0b1010] max-[680px]:grid-cols-[minmax(0,1fr)_auto] max-[680px]:gap-x-2 max-[680px]:gap-y-1.5 max-[680px]:px-1"
                 key={type}
               >
-                <div className="flex items-center gap-2.25">
+                <div className="flex min-w-0 items-center gap-2.25">
                   <span
                     className={`grid h-6.25 w-6.25 place-items-center rounded-md ${tone === "blue" ? "bg-[#112631] text-[#6ebfe1]" : tone === "green" ? "bg-[#102c26] text-[#57d1ae]" : tone === "red" ? "bg-[#321a1c] text-[#e57b7b]" : "bg-[#302612] text-[#dcb66a]"}`}
                   >
@@ -343,7 +353,7 @@ function Home() {
                       <ArrowUpRight size={14} />
                     )}
                   </span>
-                  <span>
+                  <span className="min-w-0">
                     <strong className="block text-[10px] text-[#b7cbc8]">
                       {type}
                     </strong>
@@ -352,10 +362,14 @@ function Home() {
                     </small>
                   </span>
                 </div>
-                <span className="text-right">{quantity}</span>
-                <span className="text-right">{amount}</span>
+                <span className="text-right max-[680px]:hidden">
+                  {quantity}
+                </span>
+                <span className="text-right max-[680px]:col-start-2 max-[680px]:row-start-2 max-[680px]:whitespace-nowrap">
+                  {amount}
+                </span>
                 <span
-                  className={`justify-self-end rounded-sm px-1.75 py-1 text-[8px] max-[680px]:col-start-3 max-[680px]:row-start-1 ${tone === "blue" ? "bg-[#112631] text-[#6ebfe1]" : tone === "green" ? "bg-[#102c26] text-[#57d1ae]" : tone === "red" ? "bg-[#321a1c] text-[#e57b7b]" : "bg-[#302612] text-[#dcb66a]"}`}
+                  className={`justify-self-end rounded-sm px-1.75 py-1 text-[8px] max-[680px]:col-start-2 max-[680px]:row-start-1 ${tone === "blue" ? "bg-[#112631] text-[#6ebfe1]" : tone === "green" ? "bg-[#102c26] text-[#57d1ae]" : tone === "red" ? "bg-[#321a1c] text-[#e57b7b]" : "bg-[#302612] text-[#dcb66a]"}`}
                 >
                   {status}
                 </span>
@@ -363,13 +377,9 @@ function Home() {
             ))}
           </div>
         </section>
-        <footer className="mt-8.75 flex justify-between border-t border-[#171d1d] pt-3.5 text-[9px] text-[#4e5b5c] max-[680px]:mt-6.75 max-[680px]:[&>span:last-child]:hidden">
-          <span>Ledger Vault v1.0</span>
-          <span>Last synced 2 minutes ago</span>
-        </footer>
       </div>
     </DashboardLayout>
   );
 }
 
-export default Home;
+export default Dashboard;

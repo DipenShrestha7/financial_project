@@ -358,10 +358,6 @@ function Bank() {
             ))}
           </div>
         </section>
-        <footer className="mt-8.75 flex justify-between border-t border-[#171d1d] pt-3.5 text-[9px] text-[#4e5b5c]">
-          <span>Ledger Vault v1.0</span>
-          <span>Last synced 2 minutes ago</span>
-        </footer>
       </div>
     </DashboardLayout>
   );

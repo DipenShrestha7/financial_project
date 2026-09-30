@@ -76,17 +76,6 @@ export default function SectionPage({
           />
         </section>
         <section className="rounded-lg border border-[#1d3937] bg-linear-to-br from-[#0b1716] to-[#0a1112] p-5.5">
-          <div className="mb-5 flex items-end justify-between">
-            <div>
-              <span className="mb-2.25 block text-[9px] font-bold uppercase tracking-[1.3px] text-[#5d6b6d]">
-                Ledger records
-              </span>
-              <h2 className="text-[17px] font-semibold text-[#eef3f1]">
-                {title}
-              </h2>
-            </div>
-            <span className="text-[10px] text-[#5ecdb7]">Synced just now</span>
-          </div>
           <div className="border-t border-[#1b2222]">
             <div className="grid grid-cols-[1.5fr_1.2fr_1fr_1fr] gap-3 px-3.75 py-2.75 text-[8px] uppercase tracking-[.8px] text-[#627071] max-[680px]:hidden">
               {columns.map((column) => (
@@ -95,10 +84,10 @@ export default function SectionPage({
             </div>
             {rows.map((row) => (
               <div
-                className="grid grid-cols-[1.5fr_1.2fr_1fr_1fr] items-center gap-3 border-t border-[#171d1d] px-3.75 py-3 text-[10px] hover:bg-[#0b1010] max-[680px]:grid-cols-[1.5fr_1fr] max-[680px]:gap-2 max-[680px]:px-1"
+                className="grid grid-cols-[1.5fr_1.2fr_1fr_1fr] items-center gap-3 border-t border-[#171d1d] px-3.75 py-3 text-[10px] hover:bg-[#0b1010] max-[680px]:grid-cols-[minmax(0,1fr)_auto] max-[680px]:gap-2 max-[680px]:px-1"
                 key={row.title}
               >
-                <div className="flex items-center gap-2.25">
+                <div className="flex min-w-0 items-center gap-2.25">
                   <span
                     className={`grid h-6.25 w-6.25 shrink-0 place-items-center rounded-md ${row.tone ? tones[row.tone] : "bg-[#112631] text-[#6ebfe1]"}`}
                   >
@@ -108,8 +97,8 @@ export default function SectionPage({
                       <ArrowDownLeft size={14} />
                     )}
                   </span>
-                  <span>
-                    <strong className="block text-[10px] text-[#c4d2d0]">
+                  <span className="min-w-0">
+                    <strong className="block break-words text-[10px] text-[#c4d2d0]">
                       {row.title}
                     </strong>
                     <small className="mt-0.75 block text-[9px] text-[#647374]">
@@ -117,10 +106,14 @@ export default function SectionPage({
                     </small>
                   </span>
                 </div>
-                <span className="text-[#9aabaa]">{row.detail}</span>
-                <span className="text-[#d4dfdd]">{row.value}</span>
+                <span className="text-[#9aabaa] max-[680px]:hidden">
+                  {row.detail}
+                </span>
+                <span className="text-[#d4dfdd] max-[680px]:col-start-2 max-[680px]:row-start-1 max-[680px]:whitespace-nowrap">
+                  {row.value}
+                </span>
                 <span
-                  className={`justify-self-end rounded-sm px-1.75 py-1 text-[8px] ${row.tone ? tones[row.tone] : "bg-[#112631] text-[#6ebfe1]"}`}
+                  className={`justify-self-end rounded-sm px-1.75 py-1 text-[8px] max-[680px]:col-start-2 max-[680px]:row-start-2 ${row.tone ? tones[row.tone] : "bg-[#112631] text-[#6ebfe1]"}`}
                 >
                   {row.status}
                 </span>
@@ -128,10 +121,6 @@ export default function SectionPage({
             ))}
           </div>
         </section>
-        <footer className="mt-8.75 flex justify-between border-t border-[#171d1d] pt-3.5 text-[9px] text-[#4e5b5c]">
-          <span>Ledger Vault v1.0</span>
-          <span>Last synced 2 minutes ago</span>
-        </footer>
       </div>
     </DashboardLayout>
   );
