@@ -11,6 +11,7 @@ import StockPortfolio from "./assets/components/Stock/Portfolio.tsx";
 import StockTransactions from "./assets/components/Stock/Transactions.tsx";
 import StockHistory from "./assets/components/Stock/History.tsx";
 import Transfers from "./assets/components/Stock/Transfers.tsx";
+import Calculator from "./assets/components/Stock/Calculator.tsx";
 import Reports from "./assets/pages/Reports.tsx";
 import Settings from "./assets/pages/Settings.tsx";
 import { BrowserRouter, Navigate, Route, Routes } from "react-router";
@@ -116,6 +117,14 @@ function App() {
           element={
             <RequireAuth>
               <Transfers />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/stocks/calculator"
+          element={
+            <RequireAuth>
+              <Calculator />
             </RequireAuth>
           }
         />
