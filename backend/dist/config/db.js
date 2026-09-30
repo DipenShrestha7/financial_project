@@ -97,6 +97,8 @@ export async function initializeDatabase() {
       price NUMERIC(14,4) NOT NULL DEFAULT 0,
       fees NUMERIC(14,2) NOT NULL DEFAULT 0,
       amount NUMERIC(14,2) NOT NULL DEFAULT 0,
+      cost_basis_sold NUMERIC(14,2),
+      realized_pl NUMERIC(14,2),
       event_date DATE NOT NULL,
       notes TEXT,
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
@@ -137,16 +139,23 @@ export async function initializeDatabase() {
       quantity NUMERIC(14,4) NOT NULL,
       amount NUMERIC(14,2) NOT NULL DEFAULT 0,
       deadline DATE NOT NULL,
-      status TEXT NOT NULL DEFAULT 'PENDING' CHECK (status IN ('PENDING', 'TRANSFERRED', 'PROBLEM', 'CANCELLED')),
+      status TEXT NOT NULL DEFAULT 'PENDING' CHECK (status IN ('PENDING', 'TRANSFERRED', 'MISSED')),
+      is_hidden BOOLEAN NOT NULL DEFAULT FALSE,
       notes TEXT,
       updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
   `);
     await pool.query(`
     ALTER TABLE stock_events ADD COLUMN IF NOT EXISTS portfolio_id UUID REFERENCES stock_portfolios(id) ON DELETE CASCADE;
+    ALTER TABLE stock_events ADD COLUMN IF NOT EXISTS cost_basis_sold NUMERIC(14,2);
+    ALTER TABLE stock_events ADD COLUMN IF NOT EXISTS realized_pl NUMERIC(14,2);
     ALTER TABLE stock_lots ADD COLUMN IF NOT EXISTS portfolio_id UUID REFERENCES stock_portfolios(id) ON DELETE CASCADE;
     ALTER TABLE stock_prices ADD COLUMN IF NOT EXISTS portfolio_id UUID REFERENCES stock_portfolios(id) ON DELETE CASCADE;
     ALTER TABLE share_transfers ADD COLUMN IF NOT EXISTS portfolio_id UUID REFERENCES stock_portfolios(id) ON DELETE CASCADE;
+    ALTER TABLE share_transfers ADD COLUMN IF NOT EXISTS is_hidden BOOLEAN NOT NULL DEFAULT FALSE;
+    UPDATE share_transfers SET status='MISSED' WHERE status IN ('PROBLEM', 'CANCELLED');
+    ALTER TABLE share_transfers DROP CONSTRAINT IF EXISTS share_transfers_status_check;
+    ALTER TABLE share_transfers ADD CONSTRAINT share_transfers_status_check CHECK (status IN ('PENDING', 'TRANSFERRED', 'MISSED'));
     INSERT INTO stock_portfolios (user_id, name)
       SELECT id, 'My portfolio' FROM users u
       WHERE NOT EXISTS (SELECT 1 FROM stock_portfolios p WHERE p.user_id = u.id);

@@ -9,7 +9,6 @@ import Income from "./assets/components/Bank/Income.tsx";
 import Expenses from "./assets/components/Bank/Expenses.tsx";
 import StockPortfolio from "./assets/components/Stock/Portfolio.tsx";
 import StockTransactions from "./assets/components/Stock/Transactions.tsx";
-import StockCalculator from "./assets/components/Stock/Calculator.tsx";
 import StockHistory from "./assets/components/Stock/History.tsx";
 import Transfers from "./assets/components/Stock/Transfers.tsx";
 import Reports from "./assets/pages/Reports.tsx";
@@ -57,26 +56,10 @@ function App() {
           }
         />
         <Route
-          path="/bank-accounts"
-          element={
-            <RequireAuth>
-              <BankAccounts />
-            </RequireAuth>
-          }
-        />
-        <Route
           path="/banks/accounts"
           element={
             <RequireAuth>
               <BankAccounts />
-            </RequireAuth>
-          }
-        />
-        <Route
-          path="/bank-transactions"
-          element={
-            <RequireAuth>
-              <BankTransactions />
             </RequireAuth>
           }
         />
@@ -89,26 +72,10 @@ function App() {
           }
         />
         <Route
-          path="/income"
-          element={
-            <RequireAuth>
-              <Income />
-            </RequireAuth>
-          }
-        />
-        <Route
           path="/banks/income"
           element={
             <RequireAuth>
               <Income />
-            </RequireAuth>
-          }
-        />
-        <Route
-          path="/expenses"
-          element={
-            <RequireAuth>
-              <Expenses />
             </RequireAuth>
           }
         />
@@ -121,26 +88,10 @@ function App() {
           }
         />
         <Route
-          path="/stock-portfolio"
-          element={
-            <RequireAuth>
-              <StockPortfolio />
-            </RequireAuth>
-          }
-        />
-        <Route
           path="/stocks/portfolio"
           element={
             <RequireAuth>
               <StockPortfolio />
-            </RequireAuth>
-          }
-        />
-        <Route
-          path="/stock-transactions"
-          element={
-            <RequireAuth>
-              <StockTransactions />
             </RequireAuth>
           }
         />
@@ -153,34 +104,10 @@ function App() {
           }
         />
         <Route
-          path="/stocks/calculator"
-          element={
-            <RequireAuth>
-              <StockCalculator />
-            </RequireAuth>
-          }
-        />
-        <Route
-          path="/stock-history"
-          element={
-            <RequireAuth>
-              <StockHistory />
-            </RequireAuth>
-          }
-        />
-        <Route
           path="/stocks/history"
           element={
             <RequireAuth>
               <StockHistory />
-            </RequireAuth>
-          }
-        />
-        <Route
-          path="/transfers"
-          element={
-            <RequireAuth>
-              <Transfers />
             </RequireAuth>
           }
         />

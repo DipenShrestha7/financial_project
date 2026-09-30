@@ -16,6 +16,7 @@ type StockBody = {
   notes?: string;
   deadline?: string;
   status?: string;
+  isHidden?: boolean;
 };
 
 function userIdFrom(request: { headers: { authorization?: string } }) {
@@ -111,17 +112,32 @@ export default async function stockRoutes(app: FastifyInstance) {
   });
   app.get("/api/stocks/history", async (request) => {
     const userId = userIdFrom(request);
+    const portfolioId = portfolioIdFrom(request);
     const result = await pool.query(
       `SELECT * FROM stock_events WHERE user_id = $1 AND ($2::uuid IS NULL OR portfolio_id = $2) AND event_type IN ('BONUS','DIVIDEND','VALUATION','SELL') ORDER BY event_date DESC, created_at DESC`,
-      [userId, portfolioIdFrom(request)],
+      [userId, portfolioId],
     );
-    return { history: result.rows };
+    const summary = await pool.query(
+      `SELECT COALESCE(SUM(CASE WHEN event_type='SELL' AND realized_pl > 0 THEN realized_pl ELSE 0 END),0) AS total_profit, COALESCE(SUM(CASE WHEN event_type='SELL' AND realized_pl < 0 THEN ABS(realized_pl) ELSE 0 END),0) AS total_loss, COALESCE(SUM(CASE WHEN event_type='SELL' THEN realized_pl ELSE 0 END),0) AS net_realized_pl, COALESCE(SUM(CASE WHEN event_type='DIVIDEND' THEN amount ELSE 0 END),0) AS total_dividends, COUNT(*) FILTER (WHERE event_type='SELL') AS sell_count, COUNT(*) FILTER (WHERE event_type='BONUS') AS bonus_count FROM stock_events WHERE user_id=$1 AND ($2::uuid IS NULL OR portfolio_id=$2)`,
+      [userId, portfolioId],
+    );
+    const stocks = await pool.query(
+      `SELECT symbol, COALESCE(SUM(CASE WHEN event_type IN ('BUY','IPO','RIGHT','BONUS') THEN quantity ELSE 0 END),0) AS total_acquired, COALESCE(SUM(CASE WHEN event_type='SELL' THEN quantity ELSE 0 END),0) AS total_sold, COALESCE(SUM(CASE WHEN event_type='SELL' THEN realized_pl ELSE 0 END),0) AS realized_pl, COALESCE(SUM(CASE WHEN event_type='DIVIDEND' THEN amount ELSE 0 END),0) AS dividends, COUNT(*) AS event_count FROM stock_events WHERE user_id=$1 AND ($2::uuid IS NULL OR portfolio_id=$2) GROUP BY symbol ORDER BY symbol`,
+      [userId, portfolioId],
+    );
+    return {
+      history: result.rows,
+      summary: summary.rows[0],
+      stocks: stocks.rows,
+    };
   });
   app.get("/api/stocks/transfers", async (request) => {
     const userId = userIdFrom(request);
+    const includeHidden =
+      (request.query as { includeHidden?: string }).includeHidden === "true";
     const result = await pool.query(
-      `SELECT * FROM share_transfers WHERE user_id = $1 AND ($2::uuid IS NULL OR portfolio_id = $2) ORDER BY deadline ASC, updated_at DESC`,
-      [userId, portfolioIdFrom(request)],
+      `SELECT * FROM share_transfers WHERE user_id = $1 AND ($2::uuid IS NULL OR portfolio_id = $2) AND ($3::boolean OR is_hidden=FALSE) ORDER BY deadline ASC, updated_at DESC`,
+      [userId, portfolioIdFrom(request), includeHidden],
     );
     return { transfers: result.rows };
   });
@@ -211,6 +227,7 @@ export default async function stockRoutes(app: FastifyInstance) {
       }
       if (eventType === "SELL") {
         let remaining = quantity;
+        let costBasisSold = 0;
         const lots = await client.query(
           `SELECT id, remaining_quantity FROM stock_lots WHERE user_id=$1 AND portfolio_id=$2 AND symbol=$3 AND remaining_quantity > 0 ORDER BY acquired_date ASC, id ASC FOR UPDATE`,
           [userId, portfolioId, symbol],
@@ -218,6 +235,7 @@ export default async function stockRoutes(app: FastifyInstance) {
         for (const lot of lots.rows) {
           if (remaining <= 0) break;
           const used = Math.min(remaining, Number(lot.remaining_quantity));
+          costBasisSold += used * Number(lot.cost_per_share || 0);
           await client.query(
             `UPDATE stock_lots SET remaining_quantity = remaining_quantity - $1 WHERE id = $2`,
             [used, lot.id],
@@ -226,6 +244,10 @@ export default async function stockRoutes(app: FastifyInstance) {
         }
         if (remaining > 0)
           throw new Error("Not enough open shares for this sale.");
+        await client.query(
+          `UPDATE stock_events SET cost_basis_sold=$1, realized_pl=$2 WHERE id=$3`,
+          [costBasisSold, amount - fees - costBasisSold, event.rows[0].id],
+        );
         const deadline =
           body.deadline ||
           new Date(Date.parse(dateOrToday(body.eventDate)) + 7 * 86400000)
@@ -274,20 +296,30 @@ export default async function stockRoutes(app: FastifyInstance) {
     );
     return { price: result.rows[0] };
   });
+  app.delete("/api/stocks/transfers/:id", async (request, reply) => {
+    const userId = userIdFrom(request);
+    const result = await pool.query(
+      `DELETE FROM share_transfers WHERE id=$1 AND user_id=$2 RETURNING id`,
+      [(request.params as { id: string }).id, userId],
+    );
+    if (!result.rowCount)
+      return reply.code(404).send({ message: "Transfer not found." });
+    return { success: true };
+  });
   app.patch("/api/stocks/transfers/:id", async (request, reply) => {
     const userId = userIdFrom(request);
     const body = request.body as StockBody;
     if (
-      !["PENDING", "TRANSFERRED", "PROBLEM", "CANCELLED"].includes(
-        body.status || "",
-      )
+      body.status &&
+      !["PENDING", "TRANSFERRED", "MISSED", "CANCELLED"].includes(body.status)
     )
       return reply.code(400).send({ message: "Invalid transfer status." });
     const result = await pool.query(
-      `UPDATE share_transfers SET status=$1, notes=$2, updated_at=NOW() WHERE id=$3 AND user_id=$4 RETURNING *`,
+      `UPDATE share_transfers SET status=COALESCE($1,status), notes=COALESCE($2,notes), is_hidden=COALESCE($3,is_hidden), updated_at=NOW() WHERE id=$4 AND user_id=$5 RETURNING *`,
       [
         body.status,
         body.notes || null,
+        body.isHidden,
         (request.params as { id: string }).id,
         userId,
       ],

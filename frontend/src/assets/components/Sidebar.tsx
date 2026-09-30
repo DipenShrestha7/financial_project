@@ -46,7 +46,7 @@ const navSections = [
       ["Portfolio", "stock-portfolio"],
       ["Transactions", "stock-transactions"],
       ["History", "stock-history"],
-      ["Share Transfers", "transfers"],
+      ["Transfers", "transfers"],
       ["Calculator", "stock-calculator"],
     ],
   },

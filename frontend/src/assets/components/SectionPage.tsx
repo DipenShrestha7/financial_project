@@ -98,7 +98,7 @@ export default function SectionPage({
                     )}
                   </span>
                   <span className="min-w-0">
-                    <strong className="block break-words text-[10px] text-[#c4d2d0]">
+                    <strong className="block wrap-break-words text-[10px] text-[#c4d2d0]">
                       {row.title}
                     </strong>
                     <small className="mt-0.75 block text-[9px] text-[#647374]">

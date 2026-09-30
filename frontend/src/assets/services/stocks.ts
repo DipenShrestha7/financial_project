@@ -27,6 +27,24 @@ export type StockEvent = {
   amount: string;
   event_date: string;
   notes?: string;
+  cost_basis_sold?: string;
+  realized_pl?: string;
+};
+export type HistorySummary = {
+  total_profit: string;
+  total_loss: string;
+  net_realized_pl: string;
+  total_dividends: string;
+  sell_count: string;
+  bonus_count: string;
+};
+export type StockHistoryAggregate = {
+  symbol: string;
+  total_acquired: string;
+  total_sold: string;
+  realized_pl: string;
+  dividends: string;
+  event_count: string;
 };
 export type StockPortfolio = {
   id: string;
@@ -50,7 +68,8 @@ export type Transfer = {
   quantity: string;
   amount: string;
   deadline: string;
-  status: "PENDING" | "TRANSFERRED" | "PROBLEM" | "CANCELLED";
+  status: "PENDING" | "TRANSFERRED" | "MISSED" | "CANCELLED";
+  is_hidden?: boolean;
   notes?: string;
 };
 
@@ -71,12 +90,16 @@ export const stockApi = {
       `/stocks/transactions${portfolioId ? `?portfolioId=${encodeURIComponent(portfolioId)}` : ""}`,
     ),
   history: (portfolioId?: string) =>
-    request<{ history: StockEvent[] }>(
+    request<{
+      history: StockEvent[];
+      summary: HistorySummary;
+      stocks: StockHistoryAggregate[];
+    }>(
       `/stocks/history${portfolioId ? `?portfolioId=${encodeURIComponent(portfolioId)}` : ""}`,
     ),
-  transfers: (portfolioId?: string) =>
+  transfers: (portfolioId?: string, includeHidden = false) =>
     request<{ transfers: Transfer[] }>(
-      `/stocks/transfers${portfolioId ? `?portfolioId=${encodeURIComponent(portfolioId)}` : ""}`,
+      `/stocks/transfers${portfolioId ? `?portfolioId=${encodeURIComponent(portfolioId)}&includeHidden=${includeHidden}` : `?includeHidden=${includeHidden}`}`,
     ),
   event: (data: Record<string, unknown>) =>
     request<{ event: StockEvent }>("/stocks/events", {
@@ -89,5 +112,20 @@ export const stockApi = {
     request(`/stocks/transfers/${id}`, {
       method: "PATCH",
       body: JSON.stringify({ status }),
+    }),
+  removeTransfer: (id: string) =>
+    request(`/stocks/transfers/${id}`, {
+      method: "DELETE",
+      body: JSON.stringify({}),
+    }),
+  hideTransfer: (id: string) =>
+    request(`/stocks/transfers/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify({ isHidden: true }),
+    }),
+  updateTransferVisibility: (id: string, isHidden: boolean) =>
+    request(`/stocks/transfers/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify({ isHidden }),
     }),
 };

@@ -5,7 +5,7 @@ import {
   type StockEvent,
   type StockPortfolio,
 } from "../../services/stocks";
-import { StockPageChrome, Summary, money, date } from "./StockPageChrome";
+import { StockPageChrome, money, date } from "./StockPageChrome";
 
 export default function StockTransactions() {
   const [portfolios, setPortfolios] = useState<StockPortfolio[]>([]);
@@ -41,7 +41,7 @@ export default function StockTransactions() {
       activePage="stock-transactions"
       breadcrumb="Stock transactions"
       eyebrow="Stocks / transactions"
-      title="Stock transactions"
+      title="Transactions"
       description="Record and review every buy, sell, IPO, and right-share execution. Entries remain permanent for cost basis, realized P/L, and transfer tracking."
       portfolios={portfolios}
       selectedPortfolioId={portfolioId}
@@ -53,25 +53,6 @@ export default function StockTransactions() {
         </button>
       }
     >
-      <section className="mb-3.5 grid grid-cols-3 gap-3.5 max-[680px]:grid-cols-1">
-        <Summary
-          label="Records"
-          value={String(events.length)}
-          detail="Permanent records"
-        />
-        <Summary
-          label="Needs attention"
-          value={String(
-            events.filter((event) => event.event_type === "SELL").length,
-          )}
-          detail="Sell events"
-        />
-        <Summary
-          label="Data integrity"
-          value="Atomic"
-          detail="Database transactions"
-        />
-      </section>
       <section className="rounded-lg border border-[#1d3937] bg-linear-to-br from-[#0b1716] to-[#0a1112] p-5.5">
         {error && <p className="p-4 text-xs text-[#e57b7b]">{error}</p>}
         {loading ? (
