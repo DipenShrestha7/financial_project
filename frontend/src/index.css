@@ -1,1 +1,10 @@
 @import "tailwindcss";
+
+.bank-field {
+  color-scheme: dark;
+}
+
+.bank-select option {
+  background: #08100f;
+  color: #d4dfdd;
+}

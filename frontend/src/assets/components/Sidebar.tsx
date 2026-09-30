@@ -26,12 +26,13 @@ export type PageKey =
   | "stock"
   | "stock-portfolio"
   | "stock-transactions"
+  | "stock-calculator"
   | "stock-history"
   | "transfers"
   | "reports"
   | "settings";
 
-type DashboardLayoutProps = {
+type SidebarProps = {
   children: ReactNode;
   activePage?: PageKey;
   breadcrumb?: string;
@@ -46,6 +47,7 @@ const navSections = [
       ["Transactions", "stock-transactions"],
       ["History", "stock-history"],
       ["Share Transfers", "transfers"],
+      ["Calculator", "stock-calculator"],
     ],
   },
   {
@@ -59,6 +61,18 @@ const navSections = [
     ],
   },
 ];
+
+const pagePaths: Record<string, string> = {
+  "stock-portfolio": "/stocks/portfolio",
+  "stock-transactions": "/stocks/transactions",
+  "stock-history": "/stocks/history",
+  "stock-calculator": "/stocks/calculator",
+  transfers: "/stocks/transfers",
+  "bank-accounts": "/banks/accounts",
+  "bank-transactions": "/banks/transactions",
+  income: "/banks/income",
+  expenses: "/banks/expenses",
+};
 
 function NavSection({
   icon: Icon,
@@ -94,7 +108,7 @@ function NavSection({
         links.map(([label, id]) => (
           <a
             className={`block px-2.75 py-1.75 pl-9.75 text-[12px] ${activePage === id ? "text-[#53d7bc]" : "text-[#778285] hover:text-[#57d4bb]"}`}
-            href={`/${id}`}
+            href={pagePaths[id] ?? `/${id}`}
             key={id}
             onClick={onNavigate}
           >
@@ -105,10 +119,10 @@ function NavSection({
   );
 }
 
-export default function DashboardLayout({
+export default function Sidebar({
   children,
   activePage = "dashboard",
-}: DashboardLayoutProps) {
+}: SidebarProps) {
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const navigate = useNavigate();
@@ -146,7 +160,7 @@ export default function DashboardLayout({
             className="flex items-center gap-1.5 text-[17px] font-bold tracking-[-.4px]"
             href="/"
           >
-            <img src="logo.png" className="w-6" alt="" />
+            <img src="/logo.png" className="w-6" alt="HisabKitab logo" />
             <span>
               <span className="text-white">Hisab</span>
               <span className="text-[#32c7aa]">Kitab</span>

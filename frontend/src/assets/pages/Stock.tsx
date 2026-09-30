@@ -1,5 +1,5 @@
 import { ArrowDownLeft, ArrowUpRight, ChevronDown, Plus } from "lucide-react";
-import DashboardLayout from "../components/Sidebar";
+import Sidebar from "../components/Sidebar";
 
 const holdings = [
   ["CHDC", "Chandragiri Hills", "120", "Rs. 86,400", "+ Rs. 12,600", "green"],
@@ -9,7 +9,7 @@ const holdings = [
 
 function Stock() {
   return (
-    <DashboardLayout activePage="stock" breadcrumb="Stock manager">
+    <Sidebar activePage="stock" breadcrumb="Stock manager">
       <div className="mx-auto max-w-330 p-10.5 max-[900px]:px-6 max-[680px]:px-4.25 max-[680px]:py-7">
         <div className="mb-8 flex items-end justify-between max-[680px]:flex-col max-[680px]:items-start max-[680px]:gap-4.5">
           <div>
@@ -186,7 +186,7 @@ function Stock() {
           </div>
         </section>
       </div>
-    </DashboardLayout>
+    </Sidebar>
   );
 }
 

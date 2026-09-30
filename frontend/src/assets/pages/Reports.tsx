@@ -8,11 +8,11 @@
   PieChart,
   TrendingUp,
 } from "lucide-react";
-import DashboardLayout from "../components/Sidebar";
+import Sidebar from "../components/Sidebar";
 
 function Reports() {
   return (
-    <DashboardLayout activePage="reports" breadcrumb="Reports">
+    <Sidebar activePage="reports" breadcrumb="Reports">
       <div className="mx-auto max-w-330 p-10.5 max-[900px]:px-6 max-[680px]:px-4.25 max-[680px]:py-7">
         <div className="mb-8 flex items-end justify-between max-[680px]:flex-col max-[680px]:items-start max-[680px]:gap-4.5">
           <div>
@@ -176,7 +176,7 @@ function Reports() {
           </div>
         </section>
       </div>
-    </DashboardLayout>
+    </Sidebar>
   );
 }
 

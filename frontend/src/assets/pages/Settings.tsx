@@ -1,9 +1,9 @@
 ﻿import { Bell, LockKeyhole, Palette, UserRound } from "lucide-react";
-import DashboardLayout from "../components/Sidebar";
+import Sidebar from "../components/Sidebar";
 
 function SettingsPage() {
   return (
-    <DashboardLayout activePage="settings">
+    <Sidebar activePage="settings">
       <div className="mx-auto max-w-330 p-10.5 max-[900px]:px-6 max-[680px]:px-4.25 max-[680px]:py-7">
         <div className="mb-8">
           <p className="mb-2.25 text-[9px] font-bold uppercase tracking-[1.3px] text-[#5d6b6d]">
@@ -43,7 +43,7 @@ function SettingsPage() {
           />
         </section>
       </div>
-    </DashboardLayout>
+    </Sidebar>
   );
 }
 

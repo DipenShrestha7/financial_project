@@ -8,8 +8,10 @@
   Sparkles,
   WalletCards,
 } from "lucide-react";
-import DashboardLayout from "../components/Sidebar";
+import Sidebar from "../components/Sidebar";
 import { getSessionCookie } from "../services/auth";
+import { bankApi } from "../services/banks";
+import { useEffect, useState } from "react";
 
 const feed = [
   ["BUY", "MeroShare Â· CHDC", "Rs. 1,000", "10", "blue", "Transferred"],
@@ -222,6 +224,23 @@ function ManagerPanel({ stock = false }: { stock?: boolean }) {
 
 function Dashboard() {
   const session = getSessionCookie();
+  const [bankTotal, setBankTotal] = useState(0);
+  const [activeAccountCount, setActiveAccountCount] = useState(0);
+  useEffect(() => {
+    void bankApi
+      .accounts()
+      .then(({ accounts }) => {
+        const activeAccounts = accounts.filter((account) => account.is_active);
+        setActiveAccountCount(activeAccounts.length);
+        setBankTotal(
+          activeAccounts.reduce(
+            (total, account) => total + Number(account.current_balance),
+            0,
+          ),
+        );
+      })
+      .catch(() => undefined);
+  }, []);
   const firstName = session?.user.name.trim().split(/\s+/)[0] || "there";
   const today = new Intl.DateTimeFormat("en-US", {
     weekday: "long",
@@ -231,7 +250,7 @@ function Dashboard() {
   }).format(new Date());
 
   return (
-    <DashboardLayout activePage="dashboard">
+    <Sidebar activePage="dashboard">
       <div
         className="mx-auto max-w-330 p-10.5 max-[900px]:px-6 max-[680px]:px-4.25 max-[680px]:py-7"
         id="dashboard"
@@ -276,8 +295,8 @@ function Dashboard() {
           <MetricCard
             icon={Building2}
             label="Total bank balance"
-            value="Rs. 1,400,300.00"
-            detail="Across 3 accounts"
+            value={`Rs. ${bankTotal.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+            detail={`Across ${activeAccountCount} active accounts`}
             badge="Updated now"
             tone="gold"
           />
@@ -378,7 +397,7 @@ function Dashboard() {
           </div>
         </section>
       </div>
-    </DashboardLayout>
+    </Sidebar>
   );
 }
 
