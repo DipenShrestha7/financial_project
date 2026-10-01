@@ -23,8 +23,10 @@ export type BankAccount = {
   account_type: string;
   account_number_masked?: string;
   opening_balance: string;
+  opening_balance_date?: string;
   current_balance: string;
   is_active: boolean;
+  created_at?: string;
 };
 export type BankTransaction = {
   id: string;

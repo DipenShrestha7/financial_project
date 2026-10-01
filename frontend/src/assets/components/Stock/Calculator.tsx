@@ -11,7 +11,6 @@ const money = (value: number) =>
 
 export default function StockCalculator() {
   const [type, setType] = useState<"BUY" | "SELL">("BUY");
-  const [symbol, setSymbol] = useState("");
   const [quantity, setQuantity] = useState("");
   const [price, setPrice] = useState("");
   const [costBasis, setCostBasis] = useState("");
@@ -20,14 +19,19 @@ export default function StockCalculator() {
   const [investorType, setInvestorType] = useState("Individual");
 
   const quantityValue = Number(quantity);
-  const priceValue = Number(price);
+  const buyPriceValue = Number(costBasis);
+  const sellPriceValue = Number(price);
+  const tradePrice = type === "BUY" ? buyPriceValue : sellPriceValue;
+
   const output: TradeOutput | null =
-    quantityValue > 0 && priceValue > 0
+    quantityValue > 0 && tradePrice > 0
       ? NepseTradeCalculator.calculate({
           type,
           quantity: quantityValue,
-          pricePerShare: priceValue,
-          costBasisPerShare: Number(costBasis) || 0,
+          pricePerShare: tradePrice,
+          costBasisPerShare: buyPriceValue,
+          isCostBasisWacc: basisType === "WACC",
+          basisType,
           holdingDays: holdingPeriod === "SHORT" ? 365 : 366,
           isInstitutional: investorType === "Corporate",
         })
@@ -44,7 +48,7 @@ export default function StockCalculator() {
             Stocks / calculator
           </p>
           <h1 className="mb-1.75 text-[29px] font-bold tracking-[-1px] text-[#f1f4f3] max-[680px]:text-[25px]">
-            Trade estimator &amp; P/L calculator
+            Share Calculator
           </h1>
           <p className="text-[12px] text-[#758183]">
             Calculate statutory fees, taxes, and take-home totals before
@@ -68,18 +72,12 @@ export default function StockCalculator() {
                   <span className="font-normal opacity-70">
                     {tradeType === "BUY"
                       ? "(Estimate Total Cost)"
-                      : "(Estimate Proceeds & CGT)"}
+                      : "(Estimate P/L & CGT)"}
                   </span>
                 </button>
               ))}
             </div>
             <div className="space-y-3">
-              <Field
-                label="Stock symbol (optional)"
-                placeholder="e.g., CHDC"
-                value={symbol}
-                onChange={setSymbol}
-              />
               <Field
                 label="Quantity"
                 type="number"
@@ -91,11 +89,7 @@ export default function StockCalculator() {
               {type === "SELL" ? (
                 <>
                   <Field
-                    label={
-                      basisType === "WACC"
-                        ? "WACC price per share"
-                        : "Market purchase price per share"
-                    }
+                    label="Purchase price"
                     type="number"
                     min="0"
                     step="0.01"
@@ -118,7 +112,7 @@ export default function StockCalculator() {
                         />
                         {basis === "WACC"
                           ? "WACC price"
-                          : "Market purchase price"}
+                          : "Market price"}
                       </label>
                     ))}
                   </div>
@@ -154,8 +148,8 @@ export default function StockCalculator() {
                   min="0"
                   step="0.01"
                   placeholder="Purchase price per share"
-                  value={price}
-                  onChange={setPrice}
+                  value={costBasis}
+                  onChange={setCostBasis}
                 />
               )}
               <label className="block text-[11px] text-[#b2c0be]">
@@ -214,24 +208,20 @@ function Breakdown({
 }) {
   const rows = output
     ? [
-        ["Share amount (Gross)", money(output.grossAmount)],
-        ["NEPSE broker commission", money(output.brokerFee)],
-        ["SEBON regulatory fee", money(output.sebonFee)],
-        ["DP charge", money(output.dpFee)],
+        ["Total Amount", money(output.grossAmount)],
+        ["Broker Commission", money(output.brokerFee)],
+        ["SEBON FEE", money(output.sebonFee)],
+        ["DP Charge", money(output.dpFee)],
       ]
     : [];
   return (
     <section className="rounded-lg border border-[#203640] bg-[#0b151a] p-5.5">
       <div className="flex items-start justify-between">
         <div>
-          <span className="mb-2.25 block text-[9px] font-bold uppercase tracking-[1.3px] text-[#5d6b6d]">
-            Estimated {type === "BUY" ? "cost" : "proceeds"} breakdown
+          <span className="mb-2.25 block text-20 font-bold uppercase tracking-[1.3px] text-[#5d6b6d]">
+            Estimated {type === "BUY" ? "BUY"
+              : "SELL"} breakdown
           </span>
-          <h2 className="text-[17px] font-semibold text-[#eef3f1]">
-            {type === "BUY"
-              ? "Estimated Cost Breakdown (BUY)"
-              : "Estimated Sale Breakdown (SELL)"}
-          </h2>
         </div>
         {output && (
           <span className="flex items-center gap-1 text-[10px] text-[#57d1ae]">
@@ -253,24 +243,25 @@ function Breakdown({
             ))}
             {type === "SELL" && (
               <>
-                <div className="flex justify-between py-3 text-[11px] text-[#aab8b6]">
-                  <span>Gross realized profit / loss</span>
-                  <strong
-                    className={
-                      output.grossProfit && output.grossProfit >= 0
-                        ? "text-[#57d1ae]"
-                        : "text-[#e57b7b]"
-                    }
-                  >
-                    {money(output.grossProfit || 0)}
-                  </strong>
-                </div>
-                <div className="flex justify-between py-3 text-[11px] text-[#aab8b6]">
+              <div className="flex justify-between py-3 text-[11px] text-[#aab8b6]">
                   <span>Capital gains tax</span>
                   <strong className="text-[#e5edeb]">
                     {money(output.cgtAmount || 0)}
                   </strong>
                 </div>
+                <div className="flex justify-between py-3 text-[11px] text-[#aab8b6]">
+                  <span>Estimated profit / loss</span>
+                  <strong
+                    className={
+                      output.netProfit && output.netProfit >= 0
+                        ? "text-[#57d1ae]"
+                        : "text-[#e57b7b]"
+                    }
+                  >
+                    {money(output.netProfit || 0)}
+                  </strong>
+                </div>
+                
               </>
             )}
           </div>
@@ -289,7 +280,7 @@ function Breakdown({
           <p className="mt-3 text-[10px] text-[#718582]">
             {type === "BUY"
               ? `Effective cost per share: ${money(output.effectiveCostPerShare || 0)}`
-              : `CGT rate applied: ${((output.cgtRateApplied || 0) * 100).toFixed(1)}%`}
+              : `CGT rate applied: ${((output.cgtRateApplied || 0) * 100).toFixed(2)}%`}
           </p>
         </>
       ) : (

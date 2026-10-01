@@ -55,9 +55,9 @@ const navSections = [
     title: "Banks",
     links: [
       ["Accounts", "bank-accounts"],
-      ["Transactions", "bank-transactions"],
       ["Income", "income"],
       ["Expenses", "expenses"],
+      ["Transactions", "bank-transactions"],
     ],
   },
 ];

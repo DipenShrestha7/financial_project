@@ -2,9 +2,11 @@ export interface TradeInput {
   type: "BUY" | "SELL";
   quantity: number;
   pricePerShare: number;
-  costBasisPerShare?: number; // Needed for SELL
-  holdingDays?: number; // Needed for SELL
-  isInstitutional?: boolean; // Optional flag
+  costBasisPerShare?: number;
+  isCostBasisWacc?: boolean;
+  basisType?: "WACC" | "MARKET";
+  holdingDays?: number; 
+  isInstitutional?: boolean; 
 }
 
 export interface TradeOutput {
@@ -18,11 +20,12 @@ export interface TradeOutput {
   totalPayable?: number;
   effectiveCostPerShare?: number;
 
-  // Sell specific outputs
+  totalCostBasis?: number;
   netProceedsBeforeTax?: number;
   grossProfit?: number;
   cgtRateApplied?: number;
   cgtAmount?: number;
+  netProfit?: number;
   netCashInBank?: number;
 }
 
@@ -78,16 +81,35 @@ export class NepseTradeCalculator {
       // SELL Workflow
       const costBasis = input.costBasisPerShare ?? 0;
       const holdingDays = input.holdingDays ?? 0;
+      const isWacc =
+        input.basisType !== undefined
+          ? input.basisType === "WACC"
+          : (input.isCostBasisWacc ?? true);
 
       const netProceedsBeforeTax = Number(
         (grossAmount - totalCharges).toFixed(2),
       );
-      const totalCostBasis = quantity * costBasis;
+
+      let totalCostBasis: number;
+      if (isWacc || costBasis <= 0) {
+        totalCostBasis = Number((quantity * costBasis).toFixed(2));
+      } else {
+        // Market price basis: calculate raw purchase buy-side expenses
+        const rawGrossBuy = quantity * costBasis;
+        const buyBrokerFee = Number(
+          Math.max(rawGrossBuy * this.getBrokerRate(rawGrossBuy), 10.0).toFixed(2),
+        );
+        const buySebonFee = Number((rawGrossBuy * 0.00015).toFixed(2));
+        const buyDpFee = 25.0;
+        const totalBuyExpenses = Number(
+          (buyBrokerFee + buySebonFee + buyDpFee).toFixed(2),
+        );
+        totalCostBasis = Number((rawGrossBuy + totalBuyExpenses).toFixed(2));
+      }
       const grossProfit = Number(
         (netProceedsBeforeTax - totalCostBasis).toFixed(2),
       );
 
-      // Capital Gains Tax Determination
       let cgtRateApplied = 0;
       let cgtAmount = 0.0;
 
@@ -95,11 +117,12 @@ export class NepseTradeCalculator {
         if (input.isInstitutional) {
           cgtRateApplied = 0.1;
         } else {
-          cgtRateApplied = holdingDays <= 365 ? 0.075 : 0.05;
+          cgtRateApplied = holdingDays <= 365 ? 0.05 : 0.0375;
         }
         cgtAmount = Number((grossProfit * cgtRateApplied).toFixed(2));
       }
 
+      const netProfit = Number((grossProfit - cgtAmount).toFixed(2));
       const netCashInBank = Number(
         (netProceedsBeforeTax - cgtAmount).toFixed(2),
       );
@@ -110,10 +133,12 @@ export class NepseTradeCalculator {
         sebonFee,
         dpFee,
         totalCharges,
+        totalCostBasis,
         netProceedsBeforeTax,
         grossProfit,
         cgtRateApplied,
         cgtAmount,
+        netProfit,
         netCashInBank,
       };
     }
