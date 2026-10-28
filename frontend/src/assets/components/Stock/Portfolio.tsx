@@ -2,6 +2,7 @@ import { Plus } from "lucide-react";
 import { useEffect, useState } from "react";
 import DashboardLayout from "../Sidebar";
 import StockSectionPage from "./StockSectionPage.tsx";
+import OwnerInput from "../OwnerInput.tsx";
 import {
   stockApi,
   type Holding,
@@ -93,6 +94,7 @@ export default function StockPortfolio() {
                   {portfolios.map((portfolio) => (
                     <option key={portfolio.id} value={portfolio.id}>
                       {portfolio.name}
+                      {portfolio.owner_name ? ` · [${portfolio.owner_name}]` : ""}
                     </option>
                   ))}
                 </select>
@@ -104,7 +106,7 @@ export default function StockPortfolio() {
             className="flex items-center justify-center gap-2 rounded-md bg-[#32c7aa] px-3.75 py-2.75 text-[11px] font-bold text-[#041311] hover:bg-[#5bdec8] max-[680px]:w-full"
           >
             <Plus size={16} />
-            Add portfolio
+            {formOpen ? "Close form" : "Add portfolio"}
           </button>
         </div>
         {formOpen && (
@@ -112,6 +114,7 @@ export default function StockPortfolio() {
             onDone={(portfolioId) => {
               setFormOpen(false);
               setSelectedPortfolioId(portfolioId);
+              void load();
             }}
           />
         )}
@@ -163,7 +166,9 @@ export default function StockPortfolio() {
 function PortfolioForm({ onDone }: { onDone: (portfolioId: string) => void }) {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
+  const [ownerName, setOwnerName] = useState("");
   const [message, setMessage] = useState("");
+  const fieldClass = "w-full rounded border border-[#294340] bg-[#08100f] px-3 py-2 text-[#d4dfdd] focus:border-[#32c7aa] outline-none";
   return (
     <form
       className="mb-4 grid grid-cols-2 gap-3 rounded-lg border border-[#203a38] bg-[#0b1514] p-4 text-xs max-[680px]:grid-cols-1"
@@ -173,6 +178,7 @@ function PortfolioForm({ onDone }: { onDone: (portfolioId: string) => void }) {
           const result = await stockApi.createPortfolio({
             name,
             description: description || undefined,
+            ownerName: ownerName.trim() || undefined,
           });
           onDone(result.portfolio.id);
         } catch (caught) {
@@ -189,13 +195,19 @@ function PortfolioForm({ onDone }: { onDone: (portfolioId: string) => void }) {
         placeholder="Portfolio name"
         value={name}
         onChange={(event) => setName(event.target.value)}
-        className="rounded border border-[#294340] bg-[#08100f] px-3 py-2 text-[#d4dfdd]"
+        className={fieldClass}
       />
       <input
         placeholder="Description (optional)"
         value={description}
         onChange={(event) => setDescription(event.target.value)}
-        className="rounded border border-[#294340] bg-[#08100f] px-3 py-2 text-[#d4dfdd]"
+        className={fieldClass}
+      />
+      <OwnerInput
+        value={ownerName}
+        onChange={setOwnerName}
+        placeholder="Portfolio owner (e.g. Dad, Self)"
+        className={fieldClass}
       />
       <button className="rounded bg-[#32c7aa] px-3 py-2 font-bold text-[#041311]">
         Create portfolio

@@ -7,6 +7,7 @@ import {
   type BankTransaction,
 } from "../../services/banks";
 import { BankPageChrome, Summary, date, money } from "./BankPageChrome";
+import OwnerInput from "../OwnerInput";
 
 const fieldClass =
   "bank-field h-10 w-full rounded-md border border-[#294340] bg-[#08100f] px-3 text-[12px] text-[#d4dfdd] outline-none placeholder:text-[#718582] focus:border-[#32c7aa] focus:ring-1 focus:ring-[#32c7aa]/30";
@@ -93,7 +94,6 @@ export default function BankAccounts() {
   const topInflowCategories = Object.entries(inflowCategories).sort(
     (a, b) => b[1].total - a[1].total,
   );
-  const maxInflowSpend = topInflowCategories[0]?.[1]?.total || 1;
 
   // Outflow category breakdown
   const outflowCategories: Record<string, { total: number; count: number }> =
@@ -109,7 +109,6 @@ export default function BankAccounts() {
   const topOutflowCategories = Object.entries(outflowCategories).sort(
     (a, b) => b[1].total - a[1].total,
   );
-  const maxOutflowSpend = topOutflowCategories[0]?.[1]?.total || 1;
 
   const toggleAccountStatus = async (account: BankAccount) => {
     try {
@@ -227,9 +226,9 @@ export default function BankAccounts() {
 
       {/* Main Content Area */}
       {selectedAccount ? (
-        <div className="grid grid-cols-1 gap-5">
-          {/* Activity Breakdown (Separated into Inflow and Outflow) */}
-          <section className="rounded-xl border border-[#1b2b2b] bg-[#0a1112] p-6 shadow-sm">
+        <div className="grid grid-cols-1 lg:grid-cols-5 gap-5 items-start">
+          {/* Activity Breakdown (60% width) */}
+          <section className="lg:col-span-3 rounded-xl border border-[#1b2b2b] bg-[#0a1112] p-6 shadow-sm">
             <div className="mb-6 flex flex-wrap items-center justify-between gap-3 border-b border-[#152223] pb-4">
               <div>
                 <h2 className="text-[14px] font-semibold text-[#e8efed]">
@@ -253,17 +252,16 @@ export default function BankAccounts() {
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-8 divide-x divide-[#152223] max-[768px]:grid-cols-1 max-[768px]:divide-x-0 max-[768px]:gap-6">
-              {/* Inflow Breakdown Column */}
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-0">
+              <div className="space-y-4 sm:pr-8">
+                <div className="flex items-center justify-between pb-1 border-b border-[#152223]/60">
                   <div className="flex items-center gap-2">
                     <span className="h-2 w-2 rounded-full bg-[#32c7aa]" />
                     <h3 className="text-[12px] font-semibold uppercase tracking-wider text-[#a4b8b5]">
                       Inflow
                     </h3>
                   </div>
-                  <span className="text-[12px] font-bold text-[#48d2b0]">
+                  <span className="text-[12px] font-bold text-[#48d2b0] tabular-nums">
                     +{money(totalInflow)}
                   </span>
                 </div>
@@ -273,35 +271,28 @@ export default function BankAccounts() {
                     No inflow recorded for this account.
                   </p>
                 ) : (
-                  <div className="space-y-3.5 pt-1">
+                  <div className="space-y-3 pt-1">
                     {topInflowCategories.map(([category, info]) => {
-                      const percentage = Math.round(
-                        (info.total / maxInflowSpend) * 100,
-                      );
                       const shareOfTotal =
                         totalInflow > 0
                           ? Math.round((info.total / totalInflow) * 100)
                           : 0;
                       return (
-                        <div key={category} className="space-y-1.5">
-                          <div className="flex items-center justify-between text-[11px]">
-                            <span className="font-medium text-[#c8d8d5]">
-                              {category}
-                              <span className="ml-1.5 text-[10px] text-[#637774]">
-                                ({info.count} {info.count === 1 ? "tx" : "txs"}{" "}
-                                · {shareOfTotal}%)
-                              </span>
+                        <div
+                          key={category}
+                          className="group flex items-baseline justify-between text-[11px] gap-2 py-0.5"
+                        >
+                          <span className="font-medium text-[#c8d8d5] shrink-0 truncate max-w-[65%]">
+                            {category}
+                            <span className="ml-1.5 text-[10px] text-[#637774]">
+                              ({info.count} {info.count === 1 ? "tx" : "txs"} ·{" "}
+                              {shareOfTotal}%)
                             </span>
-                            <span className="font-semibold text-[#48d2b0]">
-                              +{money(info.total)}
-                            </span>
-                          </div>
-                          <div className="h-1.5 w-full rounded-full bg-[#11201e] overflow-hidden">
-                            <div
-                              className="h-full rounded-full bg-[#32c7aa] transition-all"
-                              style={{ width: `${Math.max(percentage, 5)}%` }}
-                            />
-                          </div>
+                          </span>
+                          <span className="flex-1 border-b border-dotted border-[#1e3b36] min-w-3 opacity-70 group-hover:border-[#32c7aa]/40 transition-colors" />
+                          <span className="font-semibold text-[#48d2b0] shrink-0 whitespace-nowrap tabular-nums">
+                            +{money(info.total)}
+                          </span>
                         </div>
                       );
                     })}
@@ -310,15 +301,15 @@ export default function BankAccounts() {
               </div>
 
               {/* Outflow Breakdown Column */}
-              <div className="space-y-4 max-[768px]:pt-2 max-[768px]:border-t max-[768px]:border-[#152223] min-[769px]:pl-8">
-                <div className="flex items-center justify-between">
+              <div className="space-y-4 max-sm:pt-6 max-sm:border-t max-sm:border-[#152223] sm:pl-8 sm:border-l sm:border-[#152223]">
+                <div className="flex items-center justify-between pb-1 border-b border-[#152223]/60">
                   <div className="flex items-center gap-2">
                     <span className="h-2 w-2 rounded-full bg-[#d76c6d]" />
                     <h3 className="text-[12px] font-semibold uppercase tracking-wider text-[#b8a4a6]">
                       Outflow
                     </h3>
                   </div>
-                  <span className="text-[12px] font-bold text-[#e8908f]">
+                  <span className="text-[12px] font-bold text-[#e8908f] tabular-nums">
                     -{money(totalOutflow)}
                   </span>
                 </div>
@@ -328,35 +319,28 @@ export default function BankAccounts() {
                     No outflow recorded for this account.
                   </p>
                 ) : (
-                  <div className="space-y-3.5 pt-1">
+                  <div className="space-y-3 pt-1">
                     {topOutflowCategories.map(([category, info]) => {
-                      const percentage = Math.round(
-                        (info.total / maxOutflowSpend) * 100,
-                      );
                       const shareOfTotal =
                         totalOutflow > 0
                           ? Math.round((info.total / totalOutflow) * 100)
                           : 0;
                       return (
-                        <div key={category} className="space-y-1.5">
-                          <div className="flex items-center justify-between text-[11px]">
-                            <span className="font-medium text-[#d8c8ca]">
-                              {category}
-                              <span className="ml-1.5 text-[10px] text-[#776365]">
-                                ({info.count} {info.count === 1 ? "tx" : "txs"}{" "}
-                                · {shareOfTotal}%)
-                              </span>
+                        <div
+                          key={category}
+                          className="group flex items-baseline justify-between text-[11px] gap-2 py-0.5"
+                        >
+                          <span className="font-medium text-[#d8c8ca] shrink-0 truncate max-w-[65%]">
+                            {category}
+                            <span className="ml-1.5 text-[10px] text-[#776365]">
+                              ({info.count} {info.count === 1 ? "tx" : "txs"} ·{" "}
+                              {shareOfTotal}%)
                             </span>
-                            <span className="font-semibold text-[#e8908f]">
-                              -{money(info.total)}
-                            </span>
-                          </div>
-                          <div className="h-1.5 w-full rounded-full bg-[#201214] overflow-hidden">
-                            <div
-                              className="h-full rounded-full bg-[#d76c6d] transition-all"
-                              style={{ width: `${Math.max(percentage, 5)}%` }}
-                            />
-                          </div>
+                          </span>
+                          <span className="flex-1 border-b border-dotted border-[#3d1f23] min-w-3 opacity-70 group-hover:border-[#d76c6d]/40 transition-colors" />
+                          <span className="font-semibold text-[#e8908f] shrink-0 whitespace-nowrap tabular-nums">
+                            -{money(info.total)}
+                          </span>
                         </div>
                       );
                     })}
@@ -366,8 +350,8 @@ export default function BankAccounts() {
             </div>
           </section>
 
-          {/* Recent Transactions Section */}
-          <section className="rounded-xl border border-[#1b2b2b] bg-[#0a1112] px-6 pt-5 pb-1 shadow-sm">
+          {/* Recent Transactions Section (40% width) */}
+          <section className="lg:col-span-2 rounded-xl border border-[#1b2b2b] bg-[#0a1112] px-6 pt-5 pb-2 shadow-sm">
             <div className="mb-1 flex items-center justify-between border-b border-[#152223] pb-4">
               <div>
                 <h2 className="text-[14px] font-semibold text-[#e8efed]">
@@ -460,6 +444,7 @@ function AccountForm({ onDone }: { onDone: () => void }) {
   const [accountType, setAccountType] = useState("SAVINGS");
   const [masked, setMasked] = useState("");
   const [amount, setAmount] = useState("");
+  const [ownerName, setOwnerName] = useState("");
   const [dateValue, setDateValue] = useState(
     new Date().toISOString().slice(0, 10),
   );
@@ -479,6 +464,7 @@ function AccountForm({ onDone }: { onDone: () => void }) {
         accountNumberMasked: masked,
         openingBalance: Number(amount),
         openingBalanceDate: dateValue,
+        ownerName: ownerName.trim() || undefined,
       });
       onDone();
     } catch (caught) {
@@ -538,6 +524,12 @@ function AccountForm({ onDone }: { onDone: () => void }) {
         type="date"
         value={dateValue}
         onChange={(e) => setDateValue(e.target.value)}
+        className={fieldClass}
+      />
+      <OwnerInput
+        value={ownerName}
+        onChange={setOwnerName}
+        placeholder="Account owner (e.g. Dad, Mom, Self)"
         className={fieldClass}
       />
       <div className="col-span-2 flex items-center justify-end gap-2 pt-2 max-[680px]:col-span-1">

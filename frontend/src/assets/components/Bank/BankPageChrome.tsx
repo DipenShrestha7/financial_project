@@ -45,7 +45,7 @@ export function BankPageChrome({
             <p className="text-[12px] text-[#758183]">{description}</p>
             {accounts.length > 0 && (
               <div className="mt-4 flex flex-wrap items-end gap-2.5">
-                <label className="block min-w-[240px] max-w-80 text-[10px] text-[#819091]">
+                <label className="block min-w-60 max-w-80 text-[10px] text-[#819091]">
                   Active account
                   <select
                     value={selectedAccountId}
@@ -63,6 +63,7 @@ export function BankPageChrome({
                           : account.bank_name
                             ? `(${account.bank_name})`
                             : ""}
+                        {account.owner_name ? ` · [${account.owner_name}]` : ""}
                       </option>
                     ))}
                   </select>

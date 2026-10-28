@@ -1,0 +1,3 @@
+[submodule "nepse_data"]
+	path = nepse_data
+	url = https://github.com/surajrimal07/NepseAPI-Unofficial

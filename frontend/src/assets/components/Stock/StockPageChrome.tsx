@@ -48,6 +48,7 @@ export function StockPageChrome({
                   {portfolios.map((portfolio) => (
                     <option key={portfolio.id} value={portfolio.id}>
                       {portfolio.name}
+                      {portfolio.owner_name ? ` · [${portfolio.owner_name}]` : ""}
                     </option>
                   ))}
                 </select>

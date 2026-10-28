@@ -3,6 +3,7 @@ import Dashboard from "./assets/pages/Dashboard.tsx";
 import Home from "./assets/pages/Home.tsx";
 import Bank from "./assets/pages/Bank.tsx";
 import Stock from "./assets/pages/Stock.tsx";
+import Notifications from "./assets/pages/Notifications.tsx";
 import BankAccounts from "./assets/components/Bank/Accounts.tsx";
 import BankTransactions from "./assets/components/Bank/Transactions.tsx";
 import Income from "./assets/components/Bank/Income.tsx";
@@ -14,6 +15,7 @@ import Transfers from "./assets/components/Stock/Transfers.tsx";
 import Calculator from "./assets/components/Stock/Calculator.tsx";
 import Reports from "./assets/pages/Reports.tsx";
 import Settings from "./assets/pages/Settings.tsx";
+import News from "./assets/pages/News.tsx";
 import { BrowserRouter, Navigate, Route, Routes } from "react-router";
 import { getSessionCookie } from "./assets/services/auth";
 
@@ -53,6 +55,22 @@ function App() {
           element={
             <RequireAuth>
               <Stock />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/notifications"
+          element={
+            <RequireAuth>
+              <Notifications />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/news"
+          element={
+            <RequireAuth>
+              <News />
             </RequireAuth>
           }
         />

@@ -181,5 +181,10 @@ export async function initializeDatabase() {
     CREATE INDEX IF NOT EXISTS stock_events_portfolio_idx ON stock_events(portfolio_id, event_date DESC);
     CREATE INDEX IF NOT EXISTS stock_lots_portfolio_idx ON stock_lots(portfolio_id, symbol, acquired_date);
     CREATE INDEX IF NOT EXISTS stock_prices_portfolio_idx ON stock_prices(portfolio_id, symbol, recorded_at DESC);
+
+    ALTER TABLE bank_accounts ADD COLUMN IF NOT EXISTS owner_name TEXT NOT NULL DEFAULT 'Self';
+    ALTER TABLE stock_portfolios ADD COLUMN IF NOT EXISTS owner_name TEXT NOT NULL DEFAULT 'Self';
+    CREATE INDEX IF NOT EXISTS bank_accounts_owner_idx ON bank_accounts(user_id, owner_name);
+    CREATE INDEX IF NOT EXISTS stock_portfolios_owner_idx ON stock_portfolios(user_id, owner_name);
   `);
 }

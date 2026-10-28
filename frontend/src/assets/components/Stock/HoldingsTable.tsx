@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { stockApi, type Holding } from "../../services/stocks";
+import { Pencil, Trash2 } from "lucide-react";
+import { stockApi, type Holding, type StockEvent } from "../../services/stocks";
 
 const money = (value: number | string) =>
   `Rs. ${Number(value).toLocaleString("en-IN", { maximumFractionDigits: 2 })}`;
@@ -7,21 +8,28 @@ const money = (value: number | string) =>
 export default function HoldingsTable({
   holdings,
   portfolioId,
+  transactions,
+  onEdit,
+  onDelete,
   onPriceUpdated,
 }: {
   holdings: Holding[];
   portfolioId: string;
+  transactions: StockEvent[];
+  onEdit: (event: StockEvent) => void;
+  onDelete: (symbol: string) => void;
   onPriceUpdated: () => void;
 }) {
   return (
     <>
-      <div className="grid grid-cols-[1.35fr_.8fr_1fr_1.1fr_1fr_1fr] gap-3 px-3.75 py-2.75 text-[8px] uppercase tracking-[.8px] text-[#627071] max-[680px]:hidden">
+      <div className="grid grid-cols-[1.35fr_.8fr_1fr_1.1fr_1fr_1fr_1.2fr] gap-3 px-3.75 py-2.75 text-[8px] uppercase tracking-[.8px] text-[#627071] max-[680px]:hidden">
         <span>Holding</span>
         <span>Shares</span>
         <span>Purchase price</span>
         <span>Current price</span>
         <span>Market value</span>
         <span>Unrealized P/L</span>
+        <span>Actions</span>
       </div>
       {holdings.length === 0 ? (
         <p className="px-3.75 py-10 text-center text-xs text-[#758183]">
@@ -31,7 +39,7 @@ export default function HoldingsTable({
         holdings.map((holding) => (
           <div
             key={holding.symbol}
-            className="grid grid-cols-[1.35fr_.8fr_1fr_1.1fr_1fr_1fr] items-center gap-3 border-t border-[#171d1d] px-3.75 py-3 text-[10px]"
+            className="grid grid-cols-[1.35fr_.8fr_1fr_1.1fr_1fr_1fr_1.2fr] items-center gap-3 border-t border-[#171d1d] px-3.75 py-3 text-[10px]"
           >
             <div>
               <strong className="block text-[#c4d2d0]">{holding.symbol}</strong>
@@ -41,7 +49,7 @@ export default function HoldingsTable({
               {Number(holding.quantity)} shares
             </span>
             <span className="text-[#d4dfdd]">
-              {money(holding.average_cost)}
+              {holding.average_cost > 0 ? money(holding.average_cost) : "Not set"}
             </span>
             <div>
               <span className="block text-[#d4dfdd]">
@@ -74,6 +82,21 @@ export default function HoldingsTable({
                 ? "-"
                 : money(holding.unrealized_pl)}
             </span>
+            <div className="flex flex-wrap gap-1.5">
+              {(() => {
+                const event = transactions.find((item) => item.symbol === holding.symbol);
+                return event ? (
+                  <>
+                    <button type="button" onClick={() => onEdit(event)} className="flex items-center gap-1 rounded border border-[#294340] px-2 py-1.5 text-[9px] text-[#5ecdb7] hover:border-[#32c7aa]" aria-label={`Edit ${holding.symbol} transaction`}>
+                      <Pencil size={11} /> Edit
+                    </button>
+                    <button type="button" onClick={() => onDelete(holding.symbol)} className="flex items-center gap-1 rounded border border-[#553139] px-2 py-1.5 text-[9px] text-[#e57b7b] hover:border-[#a94f58]" aria-label={`Delete ${holding.symbol} scrip`}>
+                      <Trash2 size={11} /> Delete
+                    </button>
+                  </>
+                ) : null;
+              })()}
+            </div>
           </div>
         ))
       )}

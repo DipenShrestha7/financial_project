@@ -1,6 +1,5 @@
 import {
   BarChart3,
-  Bell,
   Building2,
   ChevronDown,
   ChevronUp,
@@ -8,6 +7,7 @@ import {
   LayoutDashboard,
   LogOut,
   Menu,
+  Newspaper,
   Settings,
   X,
 } from "lucide-react";
@@ -15,6 +15,7 @@ import { useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import { useNavigate } from "react-router";
 import { getSessionCookie, logout } from "../services/auth";
+import { NotificationPopover } from "./NotificationPopover";
 
 export type PageKey =
   | "dashboard"
@@ -30,7 +31,8 @@ export type PageKey =
   | "stock-history"
   | "transfers"
   | "reports"
-  | "settings";
+  | "settings"
+  | "news";
 
 type SidebarProps = {
   children: ReactNode;
@@ -153,7 +155,7 @@ export default function Sidebar({
         />
       )}
       <aside
-        className={`flex h-screen w-61 shrink-0 flex-col overflow-hidden border-r border-[#171b1c] bg-[#080a0b] px-3.5 pb-4.5 pt-6.75 max-[900px]:w-51.25 max-[680px]:fixed max-[680px]:inset-y-0 max-[680px]:left-0 max-[680px]:z-50 max-[680px]:w-72 max-[680px]:shadow-2xl max-[680px]:transition-transform ${mobileNavOpen ? "max-[680px]:visible max-[680px]:translate-x-0" : "max-[680px]:invisible max-[680px]:-translate-x-full"}`}
+        className={`flex h-screen w-61 shrink-0 flex-col border-r border-[#171b1c] bg-[#080a0b] px-3.5 pb-4.5 pt-6.75 max-[900px]:w-51.25 max-[680px]:fixed max-[680px]:inset-y-0 max-[680px]:left-0 max-[680px]:z-50 max-[680px]:w-72 max-[680px]:shadow-2xl max-[680px]:transition-transform ${mobileNavOpen ? "max-[680px]:visible max-[680px]:translate-x-0" : "max-[680px]:invisible max-[680px]:-translate-x-full"}`}
       >
         <div className="flex items-center justify-between px-3 pb-6.5">
           <a
@@ -167,14 +169,10 @@ export default function Sidebar({
             </span>
           </a>
           <div className="flex items-center gap-1">
-            <button
-              type="button"
-              className="relative rounded p-1.5 text-[#8a999a] hover:bg-[#111819] hover:text-white"
-              aria-label="Notifications"
-            >
-              <Bell size={17} />
-              <i className="absolute right-1 top-1 h-1.25 w-1.25 rounded-full bg-[#ed8a60]" />
-            </button>
+            <NotificationPopover
+              onNavigateToFullPage={() => navigate("/notifications")}
+              onNotificationNavigate={(url) => navigate(url)}
+            />
             <button
               type="button"
               className="hidden rounded p-1 text-[#8a999a] hover:bg-[#111819] max-[680px]:inline-flex"
@@ -211,6 +209,14 @@ export default function Sidebar({
           >
             <FileText size={17} />
             Reports
+          </a>
+          <a
+            className={`flex items-center gap-2.75 rounded-md px-2.75 py-2.25 text-[12px] ${activePage === "news" ? "bg-[#10332f] text-[#53d7bc]" : "text-[#849094] hover:bg-[#111819] hover:text-[#e5eeee]"}`}
+            href="/news"
+            onClick={() => setMobileNavOpen(false)}
+          >
+            <Newspaper size={17} />
+            News
           </a>
         </nav>
         <div className="relative mt-auto border-t border-[#182020] pt-3">

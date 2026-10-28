@@ -26,6 +26,7 @@ export type BankAccount = {
   opening_balance_date?: string;
   current_balance: string;
   is_active: boolean;
+  owner_name?: string;
   created_at?: string;
 };
 export type BankTransaction = {
@@ -46,9 +47,12 @@ export type BankTransaction = {
 export const bankApi = {
   accounts: () => request<{ accounts: BankAccount[] }>("/banks/accounts"),
   addAccount: (data: Record<string, unknown>) =>
-    request("/banks/accounts", { method: "POST", body: JSON.stringify(data) }),
+    request<{ account: BankAccount }>("/banks/accounts", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
   updateAccount: (id: string, data: Record<string, unknown>) =>
-    request(`/banks/accounts/${id}`, {
+    request<{ account: BankAccount }>(`/banks/accounts/${id}`, {
       method: "PATCH",
       body: JSON.stringify(data),
     }),
@@ -63,4 +67,10 @@ export const bankApi = {
     request("/banks/transfers", { method: "POST", body: JSON.stringify(data) }),
   voidTransaction: (id: string) =>
     request(`/banks/transactions/${id}/void`, { method: "PATCH" }),
+  owners: () => request<{ owners: string[] }>("/owners"),
+  renameOwner: (oldName: string, newName: string) =>
+    request<{ success: boolean; newName: string }>("/owners/rename", {
+      method: "POST",
+      body: JSON.stringify({ oldName, newName }),
+    }),
 };

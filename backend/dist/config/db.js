@@ -139,7 +139,7 @@ export async function initializeDatabase() {
       quantity NUMERIC(14,4) NOT NULL,
       amount NUMERIC(14,2) NOT NULL DEFAULT 0,
       deadline DATE NOT NULL,
-      status TEXT NOT NULL DEFAULT 'PENDING' CHECK (status IN ('PENDING', 'TRANSFERRED', 'MISSED')),
+      status TEXT NOT NULL DEFAULT 'PENDING' CHECK (status IN ('PENDING', 'TRANSFERRED', 'MISSED', 'CANCELLED')),
       is_hidden BOOLEAN NOT NULL DEFAULT FALSE,
       notes TEXT,
       updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
@@ -153,9 +153,9 @@ export async function initializeDatabase() {
     ALTER TABLE stock_prices ADD COLUMN IF NOT EXISTS portfolio_id UUID REFERENCES stock_portfolios(id) ON DELETE CASCADE;
     ALTER TABLE share_transfers ADD COLUMN IF NOT EXISTS portfolio_id UUID REFERENCES stock_portfolios(id) ON DELETE CASCADE;
     ALTER TABLE share_transfers ADD COLUMN IF NOT EXISTS is_hidden BOOLEAN NOT NULL DEFAULT FALSE;
-    UPDATE share_transfers SET status='MISSED' WHERE status IN ('PROBLEM', 'CANCELLED');
+    UPDATE share_transfers SET status='MISSED' WHERE status='PROBLEM';
     ALTER TABLE share_transfers DROP CONSTRAINT IF EXISTS share_transfers_status_check;
-    ALTER TABLE share_transfers ADD CONSTRAINT share_transfers_status_check CHECK (status IN ('PENDING', 'TRANSFERRED', 'MISSED'));
+    ALTER TABLE share_transfers ADD CONSTRAINT share_transfers_status_check CHECK (status IN ('PENDING', 'TRANSFERRED', 'MISSED', 'CANCELLED'));
     INSERT INTO stock_portfolios (user_id, name)
       SELECT id, 'My portfolio' FROM users u
       WHERE NOT EXISTS (SELECT 1 FROM stock_portfolios p WHERE p.user_id = u.id);
@@ -166,5 +166,10 @@ export async function initializeDatabase() {
     CREATE INDEX IF NOT EXISTS stock_events_portfolio_idx ON stock_events(portfolio_id, event_date DESC);
     CREATE INDEX IF NOT EXISTS stock_lots_portfolio_idx ON stock_lots(portfolio_id, symbol, acquired_date);
     CREATE INDEX IF NOT EXISTS stock_prices_portfolio_idx ON stock_prices(portfolio_id, symbol, recorded_at DESC);
+
+    ALTER TABLE bank_accounts ADD COLUMN IF NOT EXISTS owner_name TEXT NOT NULL DEFAULT 'Self';
+    ALTER TABLE stock_portfolios ADD COLUMN IF NOT EXISTS owner_name TEXT NOT NULL DEFAULT 'Self';
+    CREATE INDEX IF NOT EXISTS bank_accounts_owner_idx ON bank_accounts(user_id, owner_name);
+    CREATE INDEX IF NOT EXISTS stock_portfolios_owner_idx ON stock_portfolios(user_id, owner_name);
   `);
 }

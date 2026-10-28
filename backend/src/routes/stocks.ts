@@ -17,6 +17,14 @@ type StockBody = {
   deadline?: string;
   status?: string;
   isHidden?: boolean;
+  ownerName?: string;
+  events?: Array<{
+    symbol?: string;
+    eventType?: string;
+    quantity?: number;
+    eventDate?: string;
+    notes?: string;
+  }>;
 };
 
 function userIdFrom(request: { headers: { authorization?: string } }) {
@@ -37,6 +45,99 @@ function portfolioIdFrom(request: { query?: unknown; body?: unknown }) {
   return body?.portfolioId || query?.portfolioId;
 }
 
+async function rebuildPortfolioLots(
+  client: { query: (text: string, values?: unknown[]) => Promise<{ rows: any[]; rowCount: number | null }> },
+  userId: string,
+  portfolioId: string,
+) {
+  await client.query(
+    `DELETE FROM stock_lots WHERE user_id=$1 AND portfolio_id=$2`,
+    [userId, portfolioId],
+  );
+  const events = await client.query(
+    `SELECT * FROM stock_events WHERE user_id=$1 AND portfolio_id=$2 AND event_type IN ('BUY','SELL','IPO','RIGHT','BONUS') ORDER BY event_date ASC, created_at ASC, id ASC`,
+    [userId, portfolioId],
+  );
+  const openLots: Array<{ id: string; symbol: string; remaining: number; cost: number }> = [];
+  for (const event of events.rows) {
+    const quantity = Number(event.quantity);
+    const price = Number(event.price);
+    if (["BUY", "IPO", "RIGHT", "BONUS"].includes(event.event_type)) {
+      const inserted = await client.query(
+        `INSERT INTO stock_lots (user_id,portfolio_id,event_id,symbol,acquired_date,quantity,remaining_quantity,cost_per_share) VALUES ($1,$2,$3,$4,$5,$6,$6,$7) RETURNING id`,
+        [
+          userId,
+          portfolioId,
+          event.id,
+          event.symbol,
+          event.event_date,
+          quantity,
+          event.event_type === "BONUS" ? 0 : (quantity * price + Number(event.fees)) / quantity,
+        ],
+      );
+      openLots.push({
+        id: inserted.rows[0].id,
+        symbol: event.symbol,
+        remaining: quantity,
+        cost: event.event_type === "BONUS" ? 0 : (quantity * price + Number(event.fees)) / quantity,
+      });
+    } else {
+      let remaining = quantity;
+      let costBasisSold = 0;
+      for (const lot of openLots.filter((item) => item.symbol === event.symbol)) {
+        if (remaining <= 0) break;
+        const used = Math.min(remaining, lot.remaining);
+        costBasisSold += used * lot.cost;
+        lot.remaining -= used;
+        await client.query(
+          `UPDATE stock_lots SET remaining_quantity=$1 WHERE id=$2`,
+          [lot.remaining, lot.id],
+        );
+        remaining -= used;
+      }
+
+      if (remaining > 0) throw new Error(`Not enough open shares for ${event.symbol} sale.`);
+      await client.query(
+        `UPDATE stock_events SET cost_basis_sold=$1, realized_pl=$2 WHERE id=$3`,
+        [costBasisSold, Number(event.amount) - Number(event.fees) - costBasisSold, event.id],
+      );
+    }
+  }
+
+}
+
+async function refreshLivePrices(userId: string, portfolioId: string) {
+  const apiUrl = process.env.NEPSE_API_URL || "http://127.0.0.1:8000";
+  const response = await fetch(`${apiUrl}/PriceVolume`);
+  if (!response.ok) {
+    throw new Error(`NEPSE price service returned ${response.status}.`);
+  }
+  const values = (await response.json()) as Array<{
+    symbol?: string;
+    ltp?: number | string;
+    lastTradedPrice?: number | string;
+  }>;
+  for (const value of values) {
+    const symbol = value.symbol?.trim().toUpperCase();
+    const price = Number(value.ltp ?? value.lastTradedPrice);
+    if (symbol && Number.isFinite(price) && price > 0) {
+      await pool.query(
+        `INSERT INTO stock_prices (user_id,portfolio_id,symbol,price) VALUES ($1,$2,$3,$4)`,
+        [userId, portfolioId, symbol, price],
+      );
+    }
+  }
+}
+
+async function nepseRequest(path: string) {
+  const apiUrl = process.env.NEPSE_API_URL || "http://127.0.0.1:8000";
+  const response = await fetch(`${apiUrl}${path}`);
+  if (!response.ok) {
+    throw new Error(`NEPSE data service returned ${response.status}.`);
+  }
+  return response.json();
+}
+
 export default async function stockRoutes(app: FastifyInstance) {
   app.addHook("preHandler", async (request, reply) => {
     try {
@@ -55,15 +156,36 @@ export default async function stockRoutes(app: FastifyInstance) {
     return { portfolios: result.rows };
   });
 
+  app.get("/api/stocks/scrips", async (_request, reply) => {
+    try {
+      const data = (await nepseRequest("/CompanyList")) as Array<{
+        symbol?: string;
+      }>;
+      const symbols = data
+        .map((item) => item.symbol?.trim().toUpperCase())
+        .filter((symbol): symbol is string => Boolean(symbol))
+        .sort();
+      return { symbols: [...new Set(symbols)] };
+    } catch (error) {
+      return reply.code(502).send({
+        message:
+          error instanceof Error
+            ? error.message
+            : "Could not load NEPSE scrips.",
+      });
+    }
+  });
+
   app.post("/api/stocks/portfolios", async (request, reply) => {
     const userId = userIdFrom(request);
     const body = request.body as StockBody;
     if (!body.name?.trim())
       return reply.code(400).send({ message: "Portfolio name is required." });
+    const ownerName = body.ownerName?.trim() || "Self";
     try {
       const result = await pool.query(
-        `INSERT INTO stock_portfolios (user_id,name,description) VALUES ($1,$2,$3) RETURNING *`,
-        [userId, body.name.trim(), body.description?.trim() || null],
+        `INSERT INTO stock_portfolios (user_id,name,description,owner_name) VALUES ($1,$2,$3,$4) RETURNING *`,
+        [userId, body.name.trim(), body.description?.trim() || null, ownerName],
       );
       return { portfolio: result.rows[0] };
     } catch (error) {
@@ -77,10 +199,38 @@ export default async function stockRoutes(app: FastifyInstance) {
     }
   });
 
+  app.patch("/api/stocks/portfolios/:id", async (request, reply) => {
+    const userId = userIdFrom(request);
+    const body = request.body as StockBody & { isActive?: boolean };
+    const result = await pool.query(
+      `UPDATE stock_portfolios SET name=COALESCE($1,name), description=COALESCE($2,description), is_active=COALESCE($3,is_active), owner_name=COALESCE($4,owner_name) WHERE id=$5 AND user_id=$6 RETURNING *`,
+      [
+        body.name?.trim() || null,
+        body.description?.trim() || null,
+        body.isActive,
+        body.ownerName?.trim() || null,
+        (request.params as { id: string }).id,
+        userId,
+      ],
+    );
+    if (!result.rowCount)
+      return reply.code(404).send({ message: "Portfolio not found." });
+    return { portfolio: result.rows[0] };
+  });
+
   app.get("/api/stocks/portfolio", async (request) => {
     const userId = userIdFrom(request);
     const portfolioId = portfolioIdFrom(request);
     if (!portfolioId) return { holdings: [] };
+    try {
+      await refreshLivePrices(userId, portfolioId);
+    } catch (error) {
+      request.log.warn(
+        error instanceof Error
+          ? error.message
+          : "Could not refresh local NEPSE prices.",
+      );
+    }
     const result = await pool.query(
       `SELECT l.symbol, SUM(l.remaining_quantity) AS quantity, SUM(l.remaining_quantity * l.cost_per_share) AS total_cost, (SELECT p.price FROM stock_prices p WHERE p.portfolio_id = l.portfolio_id AND p.symbol = l.symbol ORDER BY p.recorded_at DESC LIMIT 1) AS current_price FROM stock_lots l WHERE l.user_id = $1 AND l.portfolio_id = $2 AND l.remaining_quantity > 0 GROUP BY l.portfolio_id, l.symbol HAVING SUM(l.remaining_quantity) > 0 ORDER BY l.symbol;`,
       [userId, portfolioId],
@@ -105,7 +255,7 @@ export default async function stockRoutes(app: FastifyInstance) {
   app.get("/api/stocks/transactions", async (request) => {
     const userId = userIdFrom(request);
     const result = await pool.query(
-      `SELECT * FROM stock_events WHERE user_id = $1 AND ($2::uuid IS NULL OR portfolio_id = $2) AND event_type IN ('BUY','SELL','IPO','RIGHT') ORDER BY event_date DESC, created_at DESC`,
+      `SELECT * FROM stock_events WHERE user_id = $1 AND ($2::uuid IS NULL OR portfolio_id = $2) AND event_type IN ('BUY','SELL','IPO','RIGHT','BONUS') ORDER BY event_date DESC, created_at DESC`,
       [userId, portfolioIdFrom(request)],
     );
     return { transactions: result.rows };
@@ -275,6 +425,203 @@ export default async function stockRoutes(app: FastifyInstance) {
           error instanceof Error
             ? error.message
             : "Could not record stock event.",
+      });
+
+    } finally {
+      client.release();
+    }
+  });
+
+  app.post("/api/stocks/events/import", async (request, reply) => {
+        const userId = userIdFrom(request);
+        const body = request.body as StockBody;
+        const portfolioId = portfolioIdFrom(request);
+        const events = body.events || [];
+        if (!portfolioId || events.length === 0)
+          return reply.code(400).send({ message: "Portfolio and transactions are required." });
+        const client = await pool.connect();
+        try {
+          await client.query("BEGIN");
+          const portfolio = await client.query(
+            `SELECT id FROM stock_portfolios WHERE id=$1 AND user_id=$2`,
+            [portfolioId, userId],
+          );
+          if (!portfolio.rowCount) throw new Error("Portfolio not found.");
+          const ordered = [...events].sort((a, b) =>
+            String(a.eventDate).localeCompare(String(b.eventDate)),
+          );
+          for (const item of ordered) {
+            const symbol = item.symbol?.trim().toUpperCase();
+            const eventType = item.eventType?.toUpperCase();
+            const quantity = Number(item.quantity || 0);
+            if (
+              !symbol ||
+              !eventType ||
+              !["BUY", "SELL", "IPO", "BONUS"].includes(eventType) ||
+              quantity <= 0 ||
+              !item.eventDate
+            ) {
+              throw new Error("Imported transactions contain invalid data.");
+            }
+            const inserted = await client.query(
+              `INSERT INTO stock_events (user_id,portfolio_id,symbol,event_type,quantity,price,fees,amount,event_date,notes) VALUES ($1,$2,$3,$4,$5,0,0,0,$6,$7) RETURNING id`,
+              [userId, portfolioId, symbol, eventType, quantity, item.eventDate, item.notes || null],
+            );
+            if (eventType === "SELL") {
+              const deadline = new Date(
+                Date.parse(item.eventDate) + 7 * 86400000,
+              )
+                .toISOString()
+                .slice(0, 10);
+              await client.query(
+                `INSERT INTO share_transfers (user_id,portfolio_id,event_id,symbol,quantity,amount,deadline) VALUES ($1,$2,$3,$4,$5,0,$6)`,
+                [userId, portfolioId, inserted.rows[0].id, symbol, quantity, deadline],
+              );
+            }
+          }
+          await rebuildPortfolioLots(client, userId, portfolioId);
+          await client.query("COMMIT");
+          return { imported: ordered.length };
+        } catch (error) {
+          await client.query("ROLLBACK");
+          return reply.code(400).send({
+            message:
+              error instanceof Error ? error.message : "Could not import transactions.",
+          });
+        } finally {
+          client.release();
+        }
+  });
+
+  app.patch("/api/stocks/events/:id", async (request, reply) => {
+        const userId = userIdFrom(request);
+        const body = request.body as StockBody;
+        const eventId = (request.params as { id: string }).id;
+        const symbol = body.symbol?.trim().toUpperCase();
+        const eventType = body.eventType?.toUpperCase();
+        const quantity = Number(body.quantity || 0);
+        const price = Number(body.price || 0);
+        const amount = Number(body.amount || quantity * price);
+        if (!symbol || !eventType || !["BUY", "SELL", "IPO", "RIGHT", "BONUS", "DIVIDEND"].includes(eventType))
+          return reply.code(400).send({ message: "A valid symbol and event type are required." });
+        if ((["BUY", "SELL", "IPO", "RIGHT", "BONUS"].includes(eventType) && quantity <= 0) || (["BUY", "IPO", "RIGHT"].includes(eventType) && price < 0))
+          return reply.code(400).send({ message: "Quantity and price must be valid." });
+        const client = await pool.connect();
+        try {
+          await client.query("BEGIN");
+          const existing = await client.query(
+            `SELECT * FROM stock_events WHERE id=$1 AND user_id=$2 FOR UPDATE`,
+            [eventId, userId],
+          );
+          if (!existing.rowCount) throw new Error("Transaction not found.");
+          const portfolioId = existing.rows[0].portfolio_id;
+          await client.query(
+            `DELETE FROM share_transfers WHERE event_id=$1`,
+            [eventId],
+          );
+          const updated = await client.query(
+            `UPDATE stock_events SET symbol=$1,event_type=$2,quantity=$3,price=$4,fees=$5,amount=$6,event_date=$7,notes=$8,cost_basis_sold=NULL,realized_pl=NULL WHERE id=$9 AND user_id=$10 RETURNING *`,
+            [symbol, eventType, eventType === "DIVIDEND" ? 0 : quantity, eventType === "DIVIDEND" ? 0 : price, Number(body.fees || 0), eventType === "DIVIDEND" ? amount : quantity * price, dateOrToday(body.eventDate), body.notes || null, eventId, userId],
+          );
+          await rebuildPortfolioLots(client, userId, portfolioId);
+          if (eventType === "SELL") {
+            await client.query(
+              `INSERT INTO share_transfers (user_id,portfolio_id,event_id,symbol,quantity,amount,deadline) VALUES ($1,$2,$3,$4,$5,$6,$7)`,
+              [userId, portfolioId, eventId, symbol, quantity, amount, new Date(Date.parse(dateOrToday(body.eventDate)) + 7 * 86400000).toISOString().slice(0, 10)],
+            );
+          }
+          await client.query("COMMIT");
+          return { event: updated.rows[0] };
+        } catch (error) {
+          await client.query("ROLLBACK");
+          return reply.code(400).send({ message: error instanceof Error ? error.message : "Could not update transaction." });
+        } finally {
+          client.release();
+        }
+  });
+
+  app.delete("/api/stocks/events/:id", async (request, reply) => {
+        const userId = userIdFrom(request);
+        const eventId = (request.params as { id: string }).id;
+        const client = await pool.connect();
+        try {
+          await client.query("BEGIN");
+          const existing = await client.query(
+            `SELECT portfolio_id FROM stock_events WHERE id=$1 AND user_id=$2 FOR UPDATE`,
+            [eventId, userId],
+          );
+          if (!existing.rowCount) {
+            await client.query("ROLLBACK");
+            return reply.code(404).send({ message: "Transaction not found." });
+          }
+          const portfolioId = existing.rows[0].portfolio_id;
+          await client.query(
+            `DELETE FROM share_transfers WHERE event_id=$1`,
+            [eventId],
+          );
+          await client.query(`DELETE FROM stock_lots WHERE event_id=$1`, [eventId]);
+          await client.query(`DELETE FROM stock_events WHERE id=$1 AND user_id=$2`, [eventId, userId]);
+          await rebuildPortfolioLots(client, userId, portfolioId);
+          await client.query("COMMIT");
+          return { success: true };
+        } catch (error) {
+          await client.query("ROLLBACK");
+          return reply.code(400).send({ message: error instanceof Error ? error.message : "Could not delete transaction." });
+        } finally {
+          client.release();
+        }
+  });
+
+  app.delete("/api/stocks/scrip/:portfolioId/:symbol", async (request, reply) => {
+    const userId = userIdFrom(request);
+    const { portfolioId, symbol: rawSymbol } = request.params as {
+      portfolioId: string;
+      symbol: string;
+    };
+    const symbol = decodeURIComponent(rawSymbol).trim().toUpperCase();
+    const client = await pool.connect();
+    try {
+      await client.query("BEGIN");
+      const portfolio = await client.query(
+        `SELECT id FROM stock_portfolios WHERE id=$1 AND user_id=$2`,
+        [portfolioId, userId],
+      );
+      if (!portfolio.rowCount) {
+        await client.query("ROLLBACK");
+        return reply.code(404).send({ message: "Portfolio not found." });
+      }
+      const events = await client.query(
+        `SELECT id FROM stock_events WHERE portfolio_id=$1 AND user_id=$2 AND symbol=$3`,
+        [portfolioId, userId, symbol],
+      );
+      if (!events.rowCount) {
+        await client.query("ROLLBACK");
+        return reply.code(404).send({ message: "Scrip not found." });
+      }
+      await client.query(
+        `DELETE FROM share_transfers WHERE portfolio_id=$1 AND user_id=$2 AND symbol=$3`,
+        [portfolioId, userId, symbol],
+      );
+      await client.query(
+        `DELETE FROM stock_lots WHERE portfolio_id=$1 AND user_id=$2 AND symbol=$3`,
+        [portfolioId, userId, symbol],
+      );
+      await client.query(
+        `DELETE FROM stock_events WHERE portfolio_id=$1 AND user_id=$2 AND symbol=$3`,
+        [portfolioId, userId, symbol],
+      );
+      await client.query(
+        `DELETE FROM stock_prices WHERE portfolio_id=$1 AND user_id=$2 AND symbol=$3`,
+        [portfolioId, userId, symbol],
+      );
+      await rebuildPortfolioLots(client, userId, portfolioId);
+      await client.query("COMMIT");
+      return { success: true };
+    } catch (error) {
+      await client.query("ROLLBACK");
+      return reply.code(400).send({
+        message:
+          error instanceof Error ? error.message : "Could not delete scrip.",
       });
     } finally {
       client.release();

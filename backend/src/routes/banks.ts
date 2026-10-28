@@ -19,6 +19,7 @@ type BankBody = {
   description?: string;
   transactionDate?: string;
   status?: string;
+  ownerName?: string;
 };
 
 function userIdFrom(request: { headers: { authorization?: string } }) {
@@ -41,6 +42,40 @@ export default async function bankRoutes(app: FastifyInstance) {
     }
   });
 
+  app.get("/api/owners", async (request) => {
+    const userId = userIdFrom(request);
+    const result = await pool.query(
+      `SELECT DISTINCT owner_name FROM (
+         SELECT owner_name FROM bank_accounts WHERE user_id = $1 AND owner_name IS NOT NULL AND TRIM(owner_name) != ''
+         UNION
+         SELECT owner_name FROM stock_portfolios WHERE user_id = $1 AND owner_name IS NOT NULL AND TRIM(owner_name) != ''
+       ) t ORDER BY owner_name ASC`,
+      [userId],
+    );
+    return { owners: result.rows.map((row) => row.owner_name) };
+  });
+
+  app.post("/api/owners/rename", async (request, reply) => {
+    const userId = userIdFrom(request);
+    const body = request.body as { oldName?: string; newName?: string };
+    if (!body.oldName?.trim() || !body.newName?.trim()) {
+      return reply
+        .code(400)
+        .send({ message: "oldName and newName are required." });
+    }
+    const oldName = body.oldName.trim();
+    const newName = body.newName.trim();
+    await pool.query(
+      `UPDATE bank_accounts SET owner_name = $1 WHERE user_id = $2 AND LOWER(owner_name) = LOWER($3)`,
+      [newName, userId, oldName],
+    );
+    await pool.query(
+      `UPDATE stock_portfolios SET owner_name = $1 WHERE user_id = $2 AND LOWER(owner_name) = LOWER($3)`,
+      [newName, userId, oldName],
+    );
+    return { success: true, newName };
+  });
+
   app.get("/api/banks/accounts", async (request) => {
     const userId = userIdFrom(request);
     const result = await pool.query(
@@ -60,8 +95,9 @@ export default async function bankRoutes(app: FastifyInstance) {
       return reply
         .code(400)
         .send({ message: "Account name and type are required." });
+    const ownerName = body.ownerName?.trim() || "Self";
     const result = await pool.query(
-      `INSERT INTO bank_accounts (user_id,name,bank_name,account_type,account_number_masked,opening_balance,opening_balance_date) VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING *`,
+      `INSERT INTO bank_accounts (user_id,name,bank_name,account_type,account_number_masked,opening_balance,opening_balance_date,owner_name) VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *`,
       [
         userId,
         body.name.trim(),
@@ -70,6 +106,7 @@ export default async function bankRoutes(app: FastifyInstance) {
         body.accountNumberMasked || null,
         Number(body.openingBalance || 0),
         dateOrToday(body.openingBalanceDate),
+        ownerName,
       ],
     );
     return { account: result.rows[0] };
@@ -79,13 +116,14 @@ export default async function bankRoutes(app: FastifyInstance) {
     const userId = userIdFrom(request);
     const body = request.body as BankBody & { isActive?: boolean };
     const result = await pool.query(
-      `UPDATE bank_accounts SET name=COALESCE($1,name), bank_name=COALESCE($2,bank_name), account_type=COALESCE($3,account_type), account_number_masked=COALESCE($4,account_number_masked), is_active=COALESCE($5,is_active) WHERE id=$6 AND user_id=$7 RETURNING *`,
+      `UPDATE bank_accounts SET name=COALESCE($1,name), bank_name=COALESCE($2,bank_name), account_type=COALESCE($3,account_type), account_number_masked=COALESCE($4,account_number_masked), is_active=COALESCE($5,is_active), owner_name=COALESCE($6,owner_name) WHERE id=$7 AND user_id=$8 RETURNING *`,
       [
-        body.name,
-        body.bankName,
+        body.name?.trim() || null,
+        body.bankName?.trim() || null,
         body.accountType,
-        body.accountNumberMasked,
+        body.accountNumberMasked?.trim() || null,
         body.isActive,
+        body.ownerName?.trim() || null,
         (request.params as { id: string }).id,
         userId,
       ],

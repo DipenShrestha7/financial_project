@@ -7,7 +7,7 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
   const response = await fetch(`${baseUrl}${path}`, {
     ...options,
     headers: {
-      "Content-Type": "application/json",
+      ...(options?.body ? { "Content-Type": "application/json" } : {}),
       Authorization: `Bearer ${session?.token || ""}`,
       ...options?.headers,
     },
@@ -50,6 +50,7 @@ export type StockPortfolio = {
   id: string;
   name: string;
   description?: string;
+  owner_name?: string;
   created_at: string;
 };
 export type Holding = {
@@ -74,11 +75,17 @@ export type Transfer = {
 };
 
 export const stockApi = {
+  scrips: () => request<{ symbols: string[] }>("/stocks/scrips"),
   portfolios: () =>
     request<{ portfolios: StockPortfolio[] }>("/stocks/portfolios"),
   createPortfolio: (data: Record<string, unknown>) =>
     request<{ portfolio: StockPortfolio }>("/stocks/portfolios", {
       method: "POST",
+      body: JSON.stringify(data),
+    }),
+  updatePortfolio: (id: string, data: Record<string, unknown>) =>
+    request<{ portfolio: StockPortfolio }>(`/stocks/portfolios/${id}`, {
+      method: "PATCH",
       body: JSON.stringify(data),
     }),
   portfolio: (portfolioId: string) =>
@@ -106,6 +113,28 @@ export const stockApi = {
       method: "POST",
       body: JSON.stringify(data),
     }),
+  importEvents: (
+    portfolioId: string,
+    events: Array<Record<string, unknown>>,
+  ) =>
+    request<{ imported: number }>("/stocks/events/import", {
+      method: "POST",
+      body: JSON.stringify({ portfolioId, events }),
+    }),
+  updateEvent: (id: string, data: Record<string, unknown>) =>
+    request<{ event: StockEvent }>(`/stocks/events/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify(data),
+    }),
+  removeEvent: (id: string) =>
+    request<{ success: boolean }>(`/stocks/events/${id}`, {
+      method: "DELETE",
+    }),
+  removeScrip: (portfolioId: string, symbol: string) =>
+    request<{ success: boolean }>(
+      `/stocks/scrip/${encodeURIComponent(portfolioId)}/${encodeURIComponent(symbol)}`,
+      { method: "DELETE" },
+    ),
   price: (data: Record<string, unknown>) =>
     request("/stocks/prices", { method: "POST", body: JSON.stringify(data) }),
   transfer: (id: string, status: Transfer["status"]) =>
