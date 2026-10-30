@@ -99,6 +99,7 @@ export default function StockSectionPage({
           symbol: row.symbol,
           eventType: row.eventType,
           quantity: row.quantity,
+          price: row.price === "" ? null : Number(row.price),
           eventDate: row.eventDate,
           notes: row.notes,
         })),
@@ -161,22 +162,63 @@ export default function StockSectionPage({
                 Review imported transactions
               </h3>
             </div>
-            <button
-              type="button"
-              disabled={importing}
-              onClick={() => void importTransactions()}
-              className="rounded bg-[#32c7aa] px-3 py-2 text-[10px] font-bold text-[#041311] disabled:opacity-60"
-            >
-              {importing ? "Importing..." : `Add ${importRows.length} transactions`}
-            </button>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                disabled={importing}
+                onClick={() => {
+                  setImportRows([]);
+                  setImportMessage("");
+                }}
+                className="rounded border border-[#294340] px-3 py-2 text-[10px] text-[#b7c4c2] disabled:opacity-60"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={importing}
+                onClick={() => void importTransactions()}
+                className="rounded bg-[#32c7aa] px-3 py-2 text-[10px] font-bold text-[#041311] disabled:opacity-60"
+              >
+                {importing ? "Importing..." : `Add ${importRows.length} transactions`}
+              </button>
+            </div>
           </div>
           <div className="max-h-64 overflow-auto">
-            <div className="sticky top-0 z-10 grid grid-cols-4 gap-3 border-b border-[#1b2222] bg-[#0b1514] px-2 py-2 text-[8px] uppercase tracking-[.8px] text-[#627071]">
-              <span>Symbol</span><span>Type</span><span>Quantity</span><span>Date</span>
+            <div className="sticky top-0 z-10 grid grid-cols-5 gap-3 border-b border-[#1b2222] bg-[#0b1514] px-2 py-2 text-[8px] uppercase tracking-[.8px] text-[#627071]">
+              <span>Symbol</span><span>Type</span><span>Quantity</span><span>Date</span><span>Price per share</span>
             </div>
             {importRows.map((row, index) => (
-              <div key={`${row.symbol}-${row.eventDate}-${index}`} className="grid grid-cols-4 gap-3 border-b border-[#171d1d] px-2 py-2 text-[10px] text-[#c4d2d0]">
-                <span>{row.symbol}</span><span>{row.eventType}</span><span>{row.quantity}</span><span>{row.eventDate}</span>
+              <div key={`${row.symbol}-${row.eventDate}-${index}`} className="grid grid-cols-5 items-center gap-3 border-b border-[#171d1d] px-2 py-2 text-[10px] text-[#c4d2d0]">
+                <span>{row.symbol}</span>
+                <span>{row.eventType}</span>
+                <span>{row.quantity}</span>
+                <span>{row.eventDate}</span>
+                {row.eventType !== "BONUS" ? (
+                  <input
+                    required
+                    min="0"
+                    step="0.01"
+                    type="number"
+                            readOnly={row.eventType === "IPO"}
+                    placeholder={row.eventType === "SELL" ? "Selling price" : "Price per share"}
+                    value={row.price}
+                    onChange={(event) => {
+                      const price = event.target.value;
+                      setImportRows((rows) =>
+                        rows.map((item, rowIndex) =>
+                          rowIndex === index ? { ...item, price } : item,
+                        ),
+                      );
+                    }}
+                    className="w-full rounded border border-[#294340] bg-[#08100f] px-2 py-1.5 text-[10px] text-[#d4dfdd]"
+                    aria-label={`${row.symbol} price per share`}
+                  />
+                ) : (
+                  <span className="text-[#718582]">
+                    {row.eventType === "BONUS" ? "Free" : "-"}
+                  </span>
+                )}
               </div>
             ))}
           </div>
@@ -204,14 +246,12 @@ export default function StockSectionPage({
         </h3>
         <HoldingsTable
           holdings={holdings}
-          portfolioId={portfolioId}
           transactions={transactions}
           onEdit={(event) => {
             setEditingEvent(event);
             setFormOpen(true);
           }}
           onDelete={setDeletingSymbol}
-          onPriceUpdated={() => onChanged?.()}
         />
       </div>
       {deletingSymbol && (
@@ -277,8 +317,9 @@ export default function StockSectionPage({
 
 type ImportRow = {
   symbol: string;
-  eventType: "BUY" | "SELL" | "IPO" | "BONUS";
+  eventType: "BUY" | "SELL" | "IPO" | "RIGHT" | "BONUS";
   quantity: number;
+  price: string;
   eventDate: string;
   notes: string;
 };
@@ -327,11 +368,18 @@ function parseCsv(text: string): ImportRow[] {
     const symbol = values[scripIndex]?.toUpperCase();
     const description = values[descriptionIndex] || "";
     const eventType = credit > 0
-      ? /bonus/i.test(description) ? "BONUS" : /ipo|initial public offering/i.test(description) ? "IPO" : "BUY"
+      ? /bonus/i.test(description) ? "BONUS" : /right/i.test(description) ? "RIGHT" : /ipo|initial public offering/i.test(description) ? "IPO" : "BUY"
       : "SELL";
     const quantity = credit > 0 ? credit : debit;
     return symbol && quantity > 0
-      ? [{ symbol, eventType, quantity, eventDate: values[dateIndex], notes: description }]
+      ? [{
+          symbol,
+          eventType,
+          quantity,
+          price: eventType === "BONUS" ? "0" : eventType === "IPO" ? "100" : "",
+          eventDate: values[dateIndex],
+          notes: description,
+        }]
       : [];
   });
 }
@@ -353,7 +401,9 @@ function StockForm({
   const [eventType, setEventType] = useState(initialEvent?.event_type || "BUY");
   const [quantity, setQuantity] = useState(initialEvent?.quantity || "");
   const [amount, setAmount] = useState(initialEvent?.amount || "");
-  const [price, setPrice] = useState(initialEvent?.price || "");
+  const [price, setPrice] = useState(
+    initialEvent?.price == null ? "" : initialEvent.price,
+  );
   const [notes, setNotes] = useState(initialEvent?.notes || "");
   const [eventDate, setEventDate] = useState(
     new Date().toISOString().slice(0, 10),
@@ -371,7 +421,14 @@ function StockForm({
         symbol,
         eventType,
         quantity: eventType === "DIVIDEND" ? 0 : Number(quantity),
-        price: eventType === "DIVIDEND" ? 0 : Number(price),
+        price:
+          eventType === "DIVIDEND"
+            ? 0
+            : eventType === "IPO"
+              ? 100
+              : price === ""
+                ? null
+                : Number(price),
         amount: eventType === "DIVIDEND" ? Number(amount) : undefined,
         eventDate,
         notes: notes || undefined,

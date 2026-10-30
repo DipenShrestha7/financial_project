@@ -1,24 +1,19 @@
-import { useState } from "react";
 import { Pencil, Trash2 } from "lucide-react";
-import { stockApi, type Holding, type StockEvent } from "../../services/stocks";
+import { type Holding, type StockEvent } from "../../services/stocks";
 
 const money = (value: number | string) =>
   `Rs. ${Number(value).toLocaleString("en-IN", { maximumFractionDigits: 2 })}`;
 
 export default function HoldingsTable({
   holdings,
-  portfolioId,
   transactions,
   onEdit,
   onDelete,
-  onPriceUpdated,
 }: {
   holdings: Holding[];
-  portfolioId: string;
   transactions: StockEvent[];
   onEdit: (event: StockEvent) => void;
   onDelete: (symbol: string) => void;
-  onPriceUpdated: () => void;
 }) {
   return (
     <>
@@ -49,7 +44,7 @@ export default function HoldingsTable({
               {Number(holding.quantity)} shares
             </span>
             <span className="text-[#d4dfdd]">
-              {holding.average_cost > 0 ? money(holding.average_cost) : "Not set"}
+              {holding.average_cost === null ? "-" : money(holding.average_cost)}
             </span>
             <div>
               <span className="block text-[#d4dfdd]">
@@ -57,12 +52,6 @@ export default function HoldingsTable({
                   ? "Not priced"
                   : money(holding.current_price)}
               </span>
-              <PriceEditor
-                symbol={holding.symbol}
-                portfolioId={portfolioId}
-                currentPrice={holding.current_price}
-                onDone={onPriceUpdated}
-              />
             </div>
             <span className="text-[#d4dfdd]">
               {holding.market_value === null
@@ -101,78 +90,5 @@ export default function HoldingsTable({
         ))
       )}
     </>
-  );
-}
-
-function PriceEditor({
-  symbol,
-  portfolioId,
-  currentPrice,
-  onDone,
-}: {
-  symbol: string;
-  portfolioId: string;
-  currentPrice: string | null;
-  onDone: () => void;
-}) {
-  const [open, setOpen] = useState(false);
-  const [price, setPrice] = useState(currentPrice || "");
-  const [message, setMessage] = useState("");
-
-  if (!open) {
-    return (
-      <button
-        type="button"
-        onClick={() => setOpen(true)}
-        className="mt-2 text-[9px] text-[#5ecdb7] hover:text-[#8ce4d2]"
-      >
-        Update price
-      </button>
-    );
-  }
-
-  return (
-    <form
-      className="mt-2 flex flex-wrap items-center gap-1.5"
-      onSubmit={async (event) => {
-        event.preventDefault();
-        try {
-          await stockApi.price({ portfolioId, symbol, price: Number(price) });
-          setOpen(false);
-          onDone();
-        } catch (caught) {
-          setMessage(
-            caught instanceof Error
-              ? caught.message
-              : "Could not update price.",
-          );
-        }
-      }}
-    >
-      <input
-        required
-        min="0"
-        step="0.01"
-        type="number"
-        value={price}
-        onChange={(event) => setPrice(event.target.value)}
-        className="w-28 rounded border border-[#294340] bg-[#08100f] px-2 py-1.5 text-[10px] text-[#d4dfdd]"
-        aria-label={`${symbol} latest price`}
-      />
-      <button
-        type="submit"
-        className="rounded bg-[#32c7aa] px-2 py-1.5 text-[9px] font-bold text-[#041311]"
-      >
-        Save
-      </button>
-      <button
-        type="button"
-        onClick={() => setOpen(false)}
-        className="px-1 text-[9px] text-[#758183]"
-      >
-        Cancel
-      </button>
-      {message && <small className="w-full text-[#e57b7b]">{message}</small>}
-    </form>
   );
 }

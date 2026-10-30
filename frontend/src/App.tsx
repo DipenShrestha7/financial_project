@@ -13,6 +13,7 @@ import StockTransactions from "./assets/components/Stock/Transactions.tsx";
 import StockHistory from "./assets/components/Stock/History.tsx";
 import Transfers from "./assets/components/Stock/Transfers.tsx";
 import Calculator from "./assets/components/Stock/Calculator.tsx";
+import AllTimePlPage from "./assets/components/Stock/AllTimePlPage.tsx";
 import Reports from "./assets/pages/Reports.tsx";
 import Settings from "./assets/pages/Settings.tsx";
 import News from "./assets/pages/News.tsx";
@@ -143,6 +144,14 @@ function App() {
           element={
             <RequireAuth>
               <Calculator />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/stocks/all-time-pl"
+          element={
+            <RequireAuth>
+              <AllTimePlPage />
             </RequireAuth>
           }
         />

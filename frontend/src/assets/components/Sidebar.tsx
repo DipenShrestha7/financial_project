@@ -28,6 +28,7 @@ export type PageKey =
   | "stock-portfolio"
   | "stock-transactions"
   | "stock-calculator"
+  | "stock-all-time-pl"
   | "stock-history"
   | "transfers"
   | "reports"
@@ -50,6 +51,7 @@ const navSections = [
       ["History", "stock-history"],
       ["Transfers", "transfers"],
       ["Calculator", "stock-calculator"],
+      ["All-time P/L", "stock-all-time-pl"],
     ],
   },
   {
@@ -69,6 +71,7 @@ const pagePaths: Record<string, string> = {
   "stock-transactions": "/stocks/transactions",
   "stock-history": "/stocks/history",
   "stock-calculator": "/stocks/calculator",
+  "stock-all-time-pl": "/stocks/all-time-pl",
   transfers: "/stocks/transfers",
   "bank-accounts": "/banks/accounts",
   "bank-transactions": "/banks/transactions",

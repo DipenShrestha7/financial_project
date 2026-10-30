@@ -9,7 +9,7 @@ type StockBody = {
   symbol?: string;
   eventType?: string;
   quantity?: number;
-  price?: number;
+  price?: number | null;
   fees?: number;
   amount?: number;
   eventDate?: string;
@@ -22,6 +22,7 @@ type StockBody = {
     symbol?: string;
     eventType?: string;
     quantity?: number;
+    price?: number | null;
     eventDate?: string;
     notes?: string;
   }>;
@@ -37,6 +38,27 @@ function userIdFrom(request: { headers: { authorization?: string } }) {
 
 function dateOrToday(value?: string) {
   return value || new Date().toISOString().slice(0, 10);
+}
+
+function brokerRate(tradeAmount: number) {
+  if (tradeAmount <= 50000) return 0.0036;
+  if (tradeAmount <= 500000) return 0.0033;
+  if (tradeAmount <= 2000000) return 0.0031;
+  if (tradeAmount <= 10000000) return 0.0027;
+  return 0.0024;
+}
+
+function tradeCharges(grossAmount: number) {
+  const brokerFee = Number(
+    Math.max(grossAmount * brokerRate(grossAmount), 10).toFixed(2),
+  );
+  const sebonFee = Number((grossAmount * 0.00015).toFixed(2));
+  return Number((brokerFee + sebonFee + 25).toFixed(2));
+}
+
+function eventFees(eventType: string, price: number | null, quantity: number) {
+  if (price === null || !["BUY", "SELL"].includes(eventType)) return 0;
+  return tradeCharges(quantity * price);
 }
 
 function portfolioIdFrom(request: { query?: unknown; body?: unknown }) {
@@ -58,10 +80,10 @@ async function rebuildPortfolioLots(
     `SELECT * FROM stock_events WHERE user_id=$1 AND portfolio_id=$2 AND event_type IN ('BUY','SELL','IPO','RIGHT','BONUS') ORDER BY event_date ASC, created_at ASC, id ASC`,
     [userId, portfolioId],
   );
-  const openLots: Array<{ id: string; symbol: string; remaining: number; cost: number }> = [];
+  const openLots: Array<{ id: string; symbol: string; remaining: number; cost: number | null }> = [];
   for (const event of events.rows) {
     const quantity = Number(event.quantity);
-    const price = Number(event.price);
+    const price = event.price === null ? null : Number(event.price);
     if (["BUY", "IPO", "RIGHT", "BONUS"].includes(event.event_type)) {
       const inserted = await client.query(
         `INSERT INTO stock_lots (user_id,portfolio_id,event_id,symbol,acquired_date,quantity,remaining_quantity,cost_per_share) VALUES ($1,$2,$3,$4,$5,$6,$6,$7) RETURNING id`,
@@ -72,22 +94,32 @@ async function rebuildPortfolioLots(
           event.symbol,
           event.event_date,
           quantity,
-          event.event_type === "BONUS" ? 0 : (quantity * price + Number(event.fees)) / quantity,
+          event.event_type === "BONUS"
+            ? 0
+            : price === null
+              ? null
+              : (quantity * price + Number(event.fees)) / quantity,
         ],
       );
       openLots.push({
         id: inserted.rows[0].id,
         symbol: event.symbol,
         remaining: quantity,
-        cost: event.event_type === "BONUS" ? 0 : (quantity * price + Number(event.fees)) / quantity,
+        cost:
+          event.event_type === "BONUS"
+            ? 0
+            : price === null
+              ? null
+              : (quantity * price + Number(event.fees)) / quantity,
       });
     } else {
       let remaining = quantity;
-      let costBasisSold = 0;
+      let costBasisSold: number | null = 0;
       for (const lot of openLots.filter((item) => item.symbol === event.symbol)) {
         if (remaining <= 0) break;
         const used = Math.min(remaining, lot.remaining);
-        costBasisSold += used * lot.cost;
+        if (lot.cost === null) costBasisSold = null;
+        else if (costBasisSold !== null) costBasisSold += used * lot.cost;
         lot.remaining -= used;
         await client.query(
           `UPDATE stock_lots SET remaining_quantity=$1 WHERE id=$2`,
@@ -99,7 +131,13 @@ async function rebuildPortfolioLots(
       if (remaining > 0) throw new Error(`Not enough open shares for ${event.symbol} sale.`);
       await client.query(
         `UPDATE stock_events SET cost_basis_sold=$1, realized_pl=$2 WHERE id=$3`,
-        [costBasisSold, Number(event.amount) - Number(event.fees) - costBasisSold, event.id],
+        [
+          costBasisSold,
+          costBasisSold === null
+            ? null
+            : Number(event.amount) - Number(event.fees) - costBasisSold,
+          event.id,
+        ],
       );
     }
   }
@@ -232,19 +270,22 @@ export default async function stockRoutes(app: FastifyInstance) {
       );
     }
     const result = await pool.query(
-      `SELECT l.symbol, SUM(l.remaining_quantity) AS quantity, SUM(l.remaining_quantity * l.cost_per_share) AS total_cost, (SELECT p.price FROM stock_prices p WHERE p.portfolio_id = l.portfolio_id AND p.symbol = l.symbol ORDER BY p.recorded_at DESC LIMIT 1) AS current_price FROM stock_lots l WHERE l.user_id = $1 AND l.portfolio_id = $2 AND l.remaining_quantity > 0 GROUP BY l.portfolio_id, l.symbol HAVING SUM(l.remaining_quantity) > 0 ORDER BY l.symbol;`,
+      `SELECT l.symbol, SUM(l.remaining_quantity) AS quantity, SUM(l.remaining_quantity * l.cost_per_share) AS total_cost, COUNT(*) FILTER (WHERE l.cost_per_share IS NULL) AS unpriced_lots, (SELECT p.price FROM stock_prices p WHERE p.portfolio_id = l.portfolio_id AND p.symbol = l.symbol ORDER BY p.recorded_at DESC LIMIT 1) AS current_price FROM stock_lots l WHERE l.user_id = $1 AND l.portfolio_id = $2 AND l.remaining_quantity > 0 GROUP BY l.portfolio_id, l.symbol HAVING SUM(l.remaining_quantity) > 0 ORDER BY l.symbol;`,
       [userId, portfolioId],
     );
     return {
       holdings: result.rows.map((row) => ({
         ...row,
-        average_cost: Number(row.total_cost) / Number(row.quantity),
+        average_cost:
+          Number(row.unpriced_lots) > 0
+            ? null
+            : Number(row.total_cost) / Number(row.quantity),
         market_value:
           row.current_price === null
             ? null
             : Number(row.quantity) * Number(row.current_price),
         unrealized_pl:
-          row.current_price === null
+          row.current_price === null || Number(row.unpriced_lots) > 0
             ? null
             : Number(row.quantity) * Number(row.current_price) -
               Number(row.total_cost),
@@ -299,8 +340,12 @@ export default async function stockRoutes(app: FastifyInstance) {
     const symbol = body.symbol?.trim().toUpperCase();
     const eventType = body.eventType?.toUpperCase();
     const quantity = Number(body.quantity || 0);
-    const price = Number(body.price || 0);
-    const fees = Number(body.fees || 0);
+    const price =
+      body.eventType?.toUpperCase() === "IPO"
+        ? 100
+        : body.price == null
+          ? null
+          : Number(body.price);
     if (
       !portfolioId ||
       !symbol ||
@@ -321,15 +366,23 @@ export default async function stockRoutes(app: FastifyInstance) {
     if (
       (["BUY", "SELL", "IPO", "RIGHT", "BONUS"].includes(eventType) &&
         quantity <= 0) ||
-      (["BUY", "IPO", "RIGHT"].includes(eventType) && price < 0)
+      (["BUY", "SELL", "IPO", "RIGHT"].includes(eventType) &&
+        price !== null &&
+        price < 0)
     )
       return reply
         .code(400)
         .send({ message: "Quantity and price must be valid." });
+    const fees = eventFees(eventType || "", price, quantity);
     const client = await pool.connect();
     try {
       await client.query("BEGIN");
-      const amount = Number(body.amount || quantity * price);
+      const amount =
+        body.amount == null
+          ? price === null
+            ? 0
+            : quantity * price
+          : Number(body.amount);
       const event = await client.query(
         `INSERT INTO stock_events (user_id, portfolio_id, symbol, event_type, quantity, price, fees, amount, event_date, notes) SELECT $1,$2,$3,$4,$5,$6,$7,$8,$9,$10 WHERE EXISTS (SELECT 1 FROM stock_portfolios WHERE id=$2 AND user_id=$1) RETURNING *`,
         [
@@ -356,7 +409,11 @@ export default async function stockRoutes(app: FastifyInstance) {
             symbol,
             dateOrToday(body.eventDate),
             quantity,
-            eventType === "BONUS" ? 0 : (quantity * price + fees) / quantity,
+            eventType === "BONUS"
+              ? 0
+              : price === null
+                ? null
+                : (quantity * price + fees) / quantity,
           ],
         );
       if (eventType === "DIVIDEND" && amount > 0) {
@@ -377,15 +434,17 @@ export default async function stockRoutes(app: FastifyInstance) {
       }
       if (eventType === "SELL") {
         let remaining = quantity;
-        let costBasisSold = 0;
+        let costBasisSold: number | null = 0;
         const lots = await client.query(
-          `SELECT id, remaining_quantity FROM stock_lots WHERE user_id=$1 AND portfolio_id=$2 AND symbol=$3 AND remaining_quantity > 0 ORDER BY acquired_date ASC, id ASC FOR UPDATE`,
+          `SELECT id, remaining_quantity, cost_per_share FROM stock_lots WHERE user_id=$1 AND portfolio_id=$2 AND symbol=$3 AND remaining_quantity > 0 ORDER BY acquired_date ASC, id ASC FOR UPDATE`,
           [userId, portfolioId, symbol],
         );
         for (const lot of lots.rows) {
           if (remaining <= 0) break;
           const used = Math.min(remaining, Number(lot.remaining_quantity));
-          costBasisSold += used * Number(lot.cost_per_share || 0);
+          if (lot.cost_per_share === null) costBasisSold = null;
+          else if (costBasisSold !== null)
+            costBasisSold += used * Number(lot.cost_per_share);
           await client.query(
             `UPDATE stock_lots SET remaining_quantity = remaining_quantity - $1 WHERE id = $2`,
             [used, lot.id],
@@ -396,7 +455,11 @@ export default async function stockRoutes(app: FastifyInstance) {
           throw new Error("Not enough open shares for this sale.");
         await client.query(
           `UPDATE stock_events SET cost_basis_sold=$1, realized_pl=$2 WHERE id=$3`,
-          [costBasisSold, amount - fees - costBasisSold, event.rows[0].id],
+          [
+            costBasisSold,
+            costBasisSold === null ? null : amount - fees - costBasisSold,
+            event.rows[0].id,
+          ],
         );
         const deadline =
           body.deadline ||
@@ -454,18 +517,39 @@ export default async function stockRoutes(app: FastifyInstance) {
             const symbol = item.symbol?.trim().toUpperCase();
             const eventType = item.eventType?.toUpperCase();
             const quantity = Number(item.quantity || 0);
+            const price =
+              eventType === "IPO"
+                ? 100
+                : item.price == null
+                  ? null
+                  : Number(item.price);
+            const fees = eventFees(eventType || "", price, quantity);
             if (
               !symbol ||
               !eventType ||
-              !["BUY", "SELL", "IPO", "BONUS"].includes(eventType) ||
+              !["BUY", "SELL", "IPO", "RIGHT", "BONUS"].includes(eventType) ||
               quantity <= 0 ||
-              !item.eventDate
+              !item.eventDate ||
+              (["BUY", "SELL", "IPO", "RIGHT"].includes(eventType) &&
+                price !== null &&
+                price < 0)
             ) {
               throw new Error("Imported transactions contain invalid data.");
             }
             const inserted = await client.query(
-              `INSERT INTO stock_events (user_id,portfolio_id,symbol,event_type,quantity,price,fees,amount,event_date,notes) VALUES ($1,$2,$3,$4,$5,0,0,0,$6,$7) RETURNING id`,
-              [userId, portfolioId, symbol, eventType, quantity, item.eventDate, item.notes || null],
+              `INSERT INTO stock_events (user_id,portfolio_id,symbol,event_type,quantity,price,fees,amount,event_date,notes) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING id`,
+              [
+                userId,
+                portfolioId,
+                symbol,
+                eventType,
+                quantity,
+                price,
+                fees,
+                price === null ? 0 : quantity * price,
+                item.eventDate,
+                item.notes || null,
+              ],
             );
             if (eventType === "SELL") {
               const deadline = new Date(
@@ -500,11 +584,28 @@ export default async function stockRoutes(app: FastifyInstance) {
         const symbol = body.symbol?.trim().toUpperCase();
         const eventType = body.eventType?.toUpperCase();
         const quantity = Number(body.quantity || 0);
-        const price = Number(body.price || 0);
-        const amount = Number(body.amount || quantity * price);
+        const price =
+          eventType === "IPO"
+            ? 100
+            : body.price == null
+              ? null
+              : Number(body.price);
+        const fees = eventFees(eventType || "", price, quantity);
+        const amount =
+          body.amount == null
+            ? price === null
+              ? 0
+              : quantity * price
+            : Number(body.amount);
         if (!symbol || !eventType || !["BUY", "SELL", "IPO", "RIGHT", "BONUS", "DIVIDEND"].includes(eventType))
           return reply.code(400).send({ message: "A valid symbol and event type are required." });
-        if ((["BUY", "SELL", "IPO", "RIGHT", "BONUS"].includes(eventType) && quantity <= 0) || (["BUY", "IPO", "RIGHT"].includes(eventType) && price < 0))
+        if (
+          (["BUY", "SELL", "IPO", "RIGHT", "BONUS"].includes(eventType) &&
+            quantity <= 0) ||
+          (["BUY", "SELL", "IPO", "RIGHT"].includes(eventType) &&
+            price !== null &&
+            price < 0)
+        )
           return reply.code(400).send({ message: "Quantity and price must be valid." });
         const client = await pool.connect();
         try {
@@ -521,7 +622,22 @@ export default async function stockRoutes(app: FastifyInstance) {
           );
           const updated = await client.query(
             `UPDATE stock_events SET symbol=$1,event_type=$2,quantity=$3,price=$4,fees=$5,amount=$6,event_date=$7,notes=$8,cost_basis_sold=NULL,realized_pl=NULL WHERE id=$9 AND user_id=$10 RETURNING *`,
-            [symbol, eventType, eventType === "DIVIDEND" ? 0 : quantity, eventType === "DIVIDEND" ? 0 : price, Number(body.fees || 0), eventType === "DIVIDEND" ? amount : quantity * price, dateOrToday(body.eventDate), body.notes || null, eventId, userId],
+            [
+              symbol,
+              eventType,
+              eventType === "DIVIDEND" ? 0 : quantity,
+              eventType === "DIVIDEND" ? 0 : price,
+              eventType === "DIVIDEND" ? 0 : fees,
+              eventType === "DIVIDEND"
+                ? amount
+                : price === null
+                  ? 0
+                  : quantity * price,
+              dateOrToday(body.eventDate),
+              body.notes || null,
+              eventId,
+              userId,
+            ],
           );
           await rebuildPortfolioLots(client, userId, portfolioId);
           if (eventType === "SELL") {

@@ -79,7 +79,7 @@ export default function StockPortfolio() {
               Portfolio
             </h1>
             <p className="text-[12px] text-[#758183]">
-              Manage portfolios, holdings, and manually updated market values.
+              Manage portfolios, holdings, and live NEPSE market values.
             </p>
             {portfolios.length > 0 && (
               <label className="mt-4 block max-w-80 text-[10px] text-[#819091]">

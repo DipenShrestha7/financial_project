@@ -57,7 +57,7 @@ export type Holding = {
   symbol: string;
   quantity: string;
   total_cost: string;
-  average_cost: number;
+  average_cost: number | null;
   current_price: string | null;
   market_value: number | null;
   unrealized_pl: number | null;

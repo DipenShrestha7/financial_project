@@ -4,17 +4,14 @@ import { Pool } from "pg";
 
 dotenv.config({ path: path.resolve(process.cwd(), "../.env") });
 
-const connectionString = process.env.NEON_DB_URL;
+const connectionString = process.env.LOCAL_DB_URL;
 
 if (!connectionString) {
-  throw new Error("Missing NEON_DB_URL in environment variables");
+  throw new Error("Missing LOCAL_DB_URL in environment variables");
 }
 
 export const pool = new Pool({
   connectionString,
-  ssl: {
-    rejectUnauthorized: false,
-  },
 });
 
 export async function initializeDatabase() {
@@ -162,9 +159,11 @@ export async function initializeDatabase() {
 
   await pool.query(`
     ALTER TABLE stock_events ADD COLUMN IF NOT EXISTS portfolio_id UUID REFERENCES stock_portfolios(id) ON DELETE CASCADE;
+    ALTER TABLE stock_events ALTER COLUMN price DROP NOT NULL;
     ALTER TABLE stock_events ADD COLUMN IF NOT EXISTS cost_basis_sold NUMERIC(14,2);
     ALTER TABLE stock_events ADD COLUMN IF NOT EXISTS realized_pl NUMERIC(14,2);
     ALTER TABLE stock_lots ADD COLUMN IF NOT EXISTS portfolio_id UUID REFERENCES stock_portfolios(id) ON DELETE CASCADE;
+    ALTER TABLE stock_lots ALTER COLUMN cost_per_share DROP NOT NULL;
     ALTER TABLE stock_prices ADD COLUMN IF NOT EXISTS portfolio_id UUID REFERENCES stock_portfolios(id) ON DELETE CASCADE;
     ALTER TABLE share_transfers ADD COLUMN IF NOT EXISTS portfolio_id UUID REFERENCES stock_portfolios(id) ON DELETE CASCADE;
     ALTER TABLE share_transfers ADD COLUMN IF NOT EXISTS is_hidden BOOLEAN NOT NULL DEFAULT FALSE;
