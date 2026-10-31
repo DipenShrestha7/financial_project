@@ -23,12 +23,14 @@ export type StockEvent = {
   event_type: string;
   quantity: string;
   price: string;
+  purchase_price_is_wacc: boolean;
   fees: string;
   amount: string;
   event_date: string;
   notes?: string;
   cost_basis_sold?: string;
   realized_pl?: string;
+  aggregate?: boolean;
 };
 export type HistorySummary = {
   total_profit: string;
@@ -57,6 +59,7 @@ export type Holding = {
   symbol: string;
   quantity: string;
   total_cost: string;
+  total_purchase_price: number | string | null;
   average_cost: number | null;
   current_price: string | null;
   market_value: number | null;
@@ -73,9 +76,13 @@ export type Transfer = {
   is_hidden?: boolean;
   notes?: string;
 };
+export type Scrip = {
+  symbol: string;
+  name: string;
+};
 
 export const stockApi = {
-  scrips: () => request<{ symbols: string[] }>("/stocks/scrips"),
+  scrips: () => request<{ scrips: Scrip[] }>("/stocks/scrips"),
   portfolios: () =>
     request<{ portfolios: StockPortfolio[] }>("/stocks/portfolios"),
   createPortfolio: (data: Record<string, unknown>) =>
@@ -125,6 +132,15 @@ export const stockApi = {
     request<{ event: StockEvent }>(`/stocks/events/${id}`, {
       method: "PATCH",
       body: JSON.stringify(data),
+    }),
+  updateAggregateEvent: (
+    portfolioId: string,
+    symbol: string,
+    data: { quantity: number; price: number; purchasePriceIsWacc: boolean },
+  ) =>
+    request<{ updated: number }>("/stocks/events/aggregate", {
+      method: "PATCH",
+      body: JSON.stringify({ portfolioId, symbol, ...data }),
     }),
   removeEvent: (id: string) =>
     request<{ success: boolean }>(`/stocks/events/${id}`, {

@@ -204,16 +204,7 @@ export const NotificationPopover: React.FC<NotificationPopoverProps> = ({
               <button
                 type="button"
                 onClick={() => setIsOpen(false)}
-                className="rounded p-1 transition"
-                style={{ color: "#778285" }}
-                onMouseEnter={(e) => {
-                  (e.currentTarget as HTMLElement).style.background = "#111819";
-                  (e.currentTarget as HTMLElement).style.color = "#bdc7c8";
-                }}
-                onMouseLeave={(e) => {
-                  (e.currentTarget as HTMLElement).style.background = "transparent";
-                  (e.currentTarget as HTMLElement).style.color = "#778285";
-                }}
+                className="rounded-full bg-linear-to-br from-[#a94f58] to-[#7f303a] p-1 text-white transition hover:from-[#bd626b] hover:to-[#913b46]"
                 aria-label="Close notifications"
               >
                 <X className="h-3.5 w-3.5" />

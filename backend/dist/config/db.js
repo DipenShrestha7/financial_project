@@ -89,9 +89,10 @@ export async function initializeDatabase() {
       user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
       portfolio_id UUID REFERENCES stock_portfolios(id) ON DELETE CASCADE,
       symbol TEXT NOT NULL,
-      event_type TEXT NOT NULL CHECK (event_type IN ('BUY', 'SELL', 'IPO', 'RIGHT', 'BONUS', 'DIVIDEND', 'VALUATION')),
+      event_type TEXT NOT NULL CHECK (event_type IN ('BUY', 'SELL', 'IPO', 'RIGHT', 'BONUS', 'MUTUAL_FUND_BUY', 'MUTUAL_FUND_SELL', 'DIVIDEND', 'VALUATION')),
       quantity NUMERIC(14,4) NOT NULL DEFAULT 0,
       price NUMERIC(14,4) NOT NULL DEFAULT 0,
+      purchase_price_is_wacc BOOLEAN NOT NULL DEFAULT FALSE,
       fees NUMERIC(14,2) NOT NULL DEFAULT 0,
       amount NUMERIC(14,2) NOT NULL DEFAULT 0,
       cost_basis_sold NUMERIC(14,2),
@@ -144,9 +145,12 @@ export async function initializeDatabase() {
   `);
     await pool.query(`
     ALTER TABLE stock_events ADD COLUMN IF NOT EXISTS portfolio_id UUID REFERENCES stock_portfolios(id) ON DELETE CASCADE;
+    ALTER TABLE stock_events DROP CONSTRAINT IF EXISTS stock_events_event_type_check;
+    ALTER TABLE stock_events ADD CONSTRAINT stock_events_event_type_check CHECK (event_type IN ('BUY', 'SELL', 'IPO', 'RIGHT', 'BONUS', 'MUTUAL_FUND_BUY', 'MUTUAL_FUND_SELL', 'DIVIDEND', 'VALUATION'));
     ALTER TABLE stock_events ALTER COLUMN price DROP NOT NULL;
     ALTER TABLE stock_events ADD COLUMN IF NOT EXISTS cost_basis_sold NUMERIC(14,2);
     ALTER TABLE stock_events ADD COLUMN IF NOT EXISTS realized_pl NUMERIC(14,2);
+    ALTER TABLE stock_events ADD COLUMN IF NOT EXISTS purchase_price_is_wacc BOOLEAN NOT NULL DEFAULT FALSE;
     ALTER TABLE stock_lots ADD COLUMN IF NOT EXISTS portfolio_id UUID REFERENCES stock_portfolios(id) ON DELETE CASCADE;
     ALTER TABLE stock_lots ALTER COLUMN cost_per_share DROP NOT NULL;
     ALTER TABLE stock_prices ADD COLUMN IF NOT EXISTS portfolio_id UUID REFERENCES stock_portfolios(id) ON DELETE CASCADE;

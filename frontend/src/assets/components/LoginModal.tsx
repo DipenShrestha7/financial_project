@@ -73,7 +73,7 @@ export default function LoginModal({
           <button
             type="button"
             onClick={onClose}
-            className="rounded-full p-2 text-[#92a6a7] transition hover:bg-[#111819] hover:text-white"
+            className="rounded-full bg-linear-to-br from-[#a94f58] to-[#7f303a] p-2 text-white transition hover:from-[#bd626b] hover:to-[#913b46]"
             aria-label="Close login dialog"
           >
             <X size={18} />

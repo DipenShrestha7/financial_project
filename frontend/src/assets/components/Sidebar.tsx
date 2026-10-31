@@ -178,7 +178,7 @@ export default function Sidebar({
             />
             <button
               type="button"
-              className="hidden rounded p-1 text-[#8a999a] hover:bg-[#111819] max-[680px]:inline-flex"
+              className="hidden rounded-full bg-linear-to-br from-[#a94f58] to-[#7f303a] p-1 text-white hover:from-[#bd626b] hover:to-[#913b46] max-[680px]:inline-flex"
               onClick={() => setMobileNavOpen(false)}
               aria-label="Close menu"
             >

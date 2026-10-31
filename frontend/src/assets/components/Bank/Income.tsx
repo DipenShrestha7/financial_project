@@ -116,7 +116,11 @@ export default function Income() {
           </button>
           <button
             onClick={() => setFormOpen((open) => !open)}
-            className="flex items-center justify-center gap-2 rounded-md bg-[#32c7aa] px-3.75 py-2.75 text-[11px] font-bold text-[#041311] hover:bg-[#5bdec8] max-[680px]:w-full"
+            className={`flex items-center justify-center gap-2 rounded-md px-3.75 py-2.75 text-[11px] font-bold max-[680px]:w-full ${
+              formOpen
+                ? "bg-linear-to-br from-[#a94f58] to-[#7f303a] text-white hover:from-[#bd626b] hover:to-[#913b46]"
+                : "bg-[#32c7aa] text-[#041311] hover:bg-[#5bdec8]"
+            }`}
           >
             <Plus size={16} />
             {formOpen ? "Close form" : "Record income"}

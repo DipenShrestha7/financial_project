@@ -94,16 +94,9 @@ export default function AllTimePlCalculator() {
     <section className="mt-4 rounded-lg border border-[#1d3937] bg-linear-to-br from-[#0b1716] to-[#0a1112] p-5.5">
       <div className="flex items-start justify-between gap-4 max-[680px]:flex-col">
         <div>
-          <span className="mb-2 block text-[9px] font-bold uppercase tracking-[1.3px] text-[#5d6b6d]">
-            Independent analysis
-          </span>
           <h2 className="text-[17px] font-semibold text-[#eef3f1]">
             All-time P/L calculator
           </h2>
-          <p className="mt-1 text-[11px] leading-5 text-[#718582]">
-            Upload a portfolio statement to calculate realized, unrealized, and
-            combined P/L. This review does not change saved transactions.
-          </p>
         </div>
         <div className="flex gap-2">
           <input
@@ -128,19 +121,6 @@ export default function AllTimePlCalculator() {
       </div>
       {events.length > 0 && (
         <div className="mt-5">
-          <p className="mb-3 text-[10px] text-[#aab6b6]">
-            IPO and mutual-fund rows use their fixed basis automatically. For
-            every other row, enter the purchase price and tick the box when
-            that price is already the WACC. Leave it unticked on a sell when
-            you want the calculator to use its calculated WACC.
-          </p>
-          <div className="mb-4 rounded border border-[#294340] bg-[#0b1514] px-3 py-2.5 text-[10px] leading-5 text-[#9aabaa]">
-            <strong className="text-[#d4dfdd]">Estimated prices are okay.</strong>{" "}
-            If you do not remember the exact purchase or selling price, enter
-            your best estimate so the calculation can continue. This calculator
-            includes broker commission, SEBON fee, DP charge, and capital-gains
-            tax in the final P/L.
-          </div>
           <div className="overflow-x-auto">
             <div className="min-w-245">
               <div className="grid grid-cols-[1.1fr_.7fr_.7fr_1fr_1fr_1.2fr] gap-3 border-b border-[#1b2222] px-2 py-2 text-[8px] uppercase tracking-[.8px] text-[#627071]">
@@ -220,9 +200,6 @@ export default function AllTimePlCalculator() {
           </div>
           {symbolsNeedingCurrentPrice.length > 0 && (
             <div className="mt-4 rounded border border-[#294340] bg-[#0b1514] p-3">
-              <p className="mb-2 text-[10px] text-[#aab6b6]">
-                Current prices are needed for unrealized and total P/L on open holdings.
-              </p>
               <div className="grid grid-cols-3 gap-3 max-[680px]:grid-cols-1">
                 {symbolsNeedingCurrentPrice.map((symbol) => (
                   <label key={symbol} className="text-[10px] text-[#b7c4c2]">

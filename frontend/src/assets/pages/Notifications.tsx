@@ -388,6 +388,7 @@ function NotificationCard({
             title="Remove notification"
             hoverColor="#e58a82"
             hoverBg="rgba(229,138,130,0.08)"
+            danger
           >
             <Trash2 size={14} />
           </ActionBtn>
@@ -403,12 +404,14 @@ function ActionBtn({
   children,
   hoverColor,
   hoverBg,
+  danger = false,
 }: {
   onClick: () => void;
   title: string;
   children: React.ReactNode;
   hoverColor: string;
   hoverBg?: string;
+  danger?: boolean;
 }) {
   const [hovered, setHovered] = useState(false);
   return (
@@ -416,7 +419,11 @@ function ActionBtn({
       type="button"
       onClick={onClick}
       title={title}
-      className="rounded-lg p-1.5 transition"
+      className={`rounded-lg p-1.5 transition ${
+        danger
+          ? "bg-linear-to-br from-[#a94f58] to-[#7f303a] text-white hover:from-[#bd626b] hover:to-[#913b46]"
+          : ""
+      }`}
       style={{
         color: hovered ? hoverColor : "#627071",
         background: hovered ? (hoverBg ?? "#111819") : "transparent",

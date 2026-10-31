@@ -184,7 +184,7 @@ export default function Transfers() {
                 type="button"
                 onClick={() => setConfirmingTransfer(null)}
                 aria-label="Close confirmation"
-                className="text-[#819091] hover:text-white"
+                className="rounded-full bg-linear-to-br from-[#a94f58] to-[#7f303a] p-1.5 text-white hover:from-[#bd626b] hover:to-[#913b46]"
               >
                 <X size={17} />
               </button>
@@ -199,7 +199,7 @@ export default function Transfers() {
                 type="button"
                 disabled={deleting}
                 onClick={() => setConfirmingTransfer(null)}
-                className="rounded border border-[#294340] px-3 py-2 text-[11px] text-[#b7c4c2]"
+                className="rounded border border-[#a94f58] bg-linear-to-br from-[#a94f58] to-[#7f303a] px-3 py-2 text-[11px] text-white hover:from-[#bd626b] hover:to-[#913b46]"
               >
                 Cancel
               </button>
@@ -314,7 +314,7 @@ function TransferTable({
               onClick={() => void onRemove(item.id)}
               aria-label={`Remove ${item.symbol} transfer`}
               title="Remove transfer"
-              className="text-[#718582] hover:text-[#e57b7b]"
+              className="rounded-full bg-linear-to-br from-[#a94f58] to-[#7f303a] p-1 text-white hover:from-[#bd626b] hover:to-[#913b46]"
             >
               <Trash2 size={14} />
             </button>

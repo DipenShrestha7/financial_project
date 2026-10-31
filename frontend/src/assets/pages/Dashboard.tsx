@@ -165,6 +165,9 @@ function Dashboard() {
   const [stockTotals, setStockTotals] = useState<
     { portfolioId: string; value: number; pl: number }[]
   >([]);
+  const [pendingTransferOwners, setPendingTransferOwners] = useState<string[]>(
+    [],
+  );
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -198,6 +201,25 @@ function Dashboard() {
           }),
         );
         setStockTotals(totals);
+        const transferOwners = await Promise.all(
+          portfolioRes.portfolios.map(async (portfolio) => {
+            try {
+              const transferRes = await stockApi.transfers(portfolio.id);
+              return transferRes.transfers.some(
+                (transfer) => transfer.status === "PENDING",
+              )
+                ? portfolio.owner_name || "Self"
+                : null;
+            } catch {
+              return null;
+            }
+          }),
+        );
+        setPendingTransferOwners([
+          ...new Set(
+            transferOwners.filter((owner): owner is string => owner !== null),
+          ),
+        ]);
       } catch {
         /* silent */
       } finally {
@@ -393,23 +415,27 @@ function Dashboard() {
         )}
 
         {/* MeroShare alert */}
-        <section className="mb-8.25 flex items-start gap-3 rounded-md border border-[#735627] bg-[#17130a] px-4 py-3.25 text-[#d9bd78]">
-          <Sparkles className="mt-px shrink-0" size={16} />
-          <div>
-            <strong className="text-[11px] text-[#ebd29a]">
-              MeroShare transfers pending review
-            </strong>
-            <p className="mt-1 text-[10px] text-[#a79470]">
-              Check stock transfers section for pending settlements.{" "}
-              <button
-                onClick={() => navigate("/stocks/transfers")}
-                className="cursor-pointer border-b border-dashed border-[#826b3b] text-[#e5c87d]"
-              >
-                View transfers →
-              </button>
-            </p>
-          </div>
-        </section>
+        {(selectedOwner === "" ||
+          pendingTransferOwners.includes(selectedOwner)) &&
+          pendingTransferOwners.length > 0 && (
+            <section className="mb-8.25 flex items-start gap-3 rounded-md border border-[#735627] bg-[#17130a] px-4 py-3.25 text-[#d9bd78]">
+              <Sparkles className="mt-px shrink-0" size={16} />
+              <div>
+                <strong className="text-[11px] text-[#ebd29a]">
+                  MeroShare transfers pending review
+                </strong>
+                <p className="mt-1 text-[10px] text-[#a79470]">
+                  Check stock transfers section for pending settlements.{" "}
+                  <button
+                    onClick={() => navigate("/stocks/transfers")}
+                    className="cursor-pointer border-b border-dashed border-[#826b3b] text-[#e5c87d]"
+                  >
+                    View transfers →
+                  </button>
+                </p>
+              </div>
+            </section>
+          )}
 
         {/* Quick nav panels */}
         <section className="mb-3.5 grid grid-cols-[1.03fr_.97fr] gap-3.5 max-[900px]:grid-cols-1">

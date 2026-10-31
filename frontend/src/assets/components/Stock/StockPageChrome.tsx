@@ -8,8 +8,8 @@ export function StockPageChrome({
   eyebrow,
   title,
   description,
-  portfolios,
-  selectedPortfolioId,
+  portfolios = [],
+  selectedPortfolioId = "",
   onPortfolioChange,
   action,
   children,
@@ -19,9 +19,9 @@ export function StockPageChrome({
   eyebrow: string;
   title: string;
   description: string;
-  portfolios: StockPortfolio[];
-  selectedPortfolioId: string;
-  onPortfolioChange: (id: string) => void;
+  portfolios?: StockPortfolio[];
+  selectedPortfolioId?: string;
+  onPortfolioChange?: (id: string) => void;
   action?: ReactNode;
   children: ReactNode;
 }) {
@@ -37,7 +37,7 @@ export function StockPageChrome({
               {title}
             </h1>
             <p className="text-[12px] text-[#758183]">{description}</p>
-            {portfolios.length > 0 && (
+            {portfolios.length > 0 && onPortfolioChange && (
               <label className="mt-4 block max-w-80 text-[10px] text-[#819091]">
                 Active portfolio
                 <select
@@ -48,7 +48,9 @@ export function StockPageChrome({
                   {portfolios.map((portfolio) => (
                     <option key={portfolio.id} value={portfolio.id}>
                       {portfolio.name}
-                      {portfolio.owner_name ? ` · [${portfolio.owner_name}]` : ""}
+                      {portfolio.owner_name
+                        ? ` · [${portfolio.owner_name}]`
+                        : ""}
                     </option>
                   ))}
                 </select>
