@@ -5,6 +5,7 @@ import healthRoutes from "./routes/health.js";
 import authRoutes from "./routes/auth.js";
 import stockRoutes from "./routes/stocks.js";
 import bankRoutes from "./routes/banks.js";
+import chatRoutes from "./routes/chat.js";
 
 export async function buildApp() {
   const app = Fastify({
@@ -21,6 +22,7 @@ export async function buildApp() {
   await app.register(authRoutes);
   await app.register(stockRoutes);
   await app.register(bankRoutes);
+  await app.register(chatRoutes);
 
   return app;
 }

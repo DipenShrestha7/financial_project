@@ -1,5 +1,6 @@
 import {
   BarChart3,
+  Bot,
   Building2,
   ChevronDown,
   ChevronUp,
@@ -33,7 +34,8 @@ export type PageKey =
   | "transfers"
   | "reports"
   | "settings"
-  | "news";
+  | "news"
+  | "chatbot";
 
 type SidebarProps = {
   children: ReactNode;
@@ -220,6 +222,14 @@ export default function Sidebar({
           >
             <Newspaper size={17} />
             News
+          </a>
+          <a
+            className={`flex items-center gap-2.75 rounded-md px-2.75 py-2.25 text-[12px] ${activePage === "chatbot" ? "bg-[#10332f] text-[#53d7bc]" : "text-[#849094] hover:bg-[#111819] hover:text-[#e5eeee]"}`}
+            href="/chatbot"
+            onClick={() => setMobileNavOpen(false)}
+          >
+            <Bot size={17} />
+            Finance assistant
           </a>
         </nav>
         <div className="relative mt-auto border-t border-[#182020] pt-3">

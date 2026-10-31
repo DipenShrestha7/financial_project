@@ -347,7 +347,7 @@ export default function StockSectionPage({
       )}
       {formOpen && (
         <div
-          className="fixed inset-0 z-[100] grid place-items-center overflow-y-auto bg-black/35 p-4 backdrop-blur-md"
+          className="fixed inset-0 z-100 grid place-items-center overflow-y-auto bg-black/35 p-4 backdrop-blur-md"
           role="dialog"
           aria-modal="true"
           aria-labelledby="stock-transaction-title"
@@ -576,7 +576,9 @@ function StockForm({
       <div className="relative col-span-2 max-[680px]:col-span-1">
         <input
           required
-          placeholder={scrips.length ? "Search stock or company name" : "Symbol"}
+          placeholder={
+            scrips.length ? "Search stock or company name" : "Symbol"
+          }
           value={symbol}
           onFocus={() => setScripSearchOpen(Boolean(symbol.trim()))}
           onChange={(event) => {

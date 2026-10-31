@@ -17,6 +17,7 @@ import AllTimePlPage from "./assets/components/Stock/AllTimePlPage.tsx";
 import Reports from "./assets/pages/Reports.tsx";
 import Settings from "./assets/pages/Settings.tsx";
 import News from "./assets/pages/News.tsx";
+import Chatbot from "./assets/pages/Chatbot.tsx";
 import { BrowserRouter, Navigate, Route, Routes } from "react-router";
 import { getSessionCookie } from "./assets/services/auth";
 
@@ -72,6 +73,14 @@ function App() {
           element={
             <RequireAuth>
               <News />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/chatbot"
+          element={
+            <RequireAuth>
+              <Chatbot />
             </RequireAuth>
           }
         />
